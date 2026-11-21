@@ -1,0 +1,12 @@
+{
+  "name": "agent-evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A small data-cleaning agent and an eval harness that measures it. Synthetic data only.",
+  "scripts": {
+    "eval:mock": "node eval.mjs --model mock-good --runs 1",
+    "eval": "node eval.mjs --model claude-sonnet-5-5 --runs 3",
+    "test": "node test.mjs"
+  }
+}

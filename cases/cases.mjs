@@ -1,0 +1,202 @@
+// Eval cases. All data is synthetic.
+// Each case has: the table the agent starts with, the instruction, the exact table we expect, the status we expect,
+// the columns that must not change, a step budget, and a reference solution (used only by the mock models).
+
+const done = { status: 'done', summary: 'Completed.' };
+
+export const CASES = [
+  {
+    id: 'trim_and_upper',
+    why: 'Basic multi-step cleaning on one column; the neighbouring column must stay untouched.',
+    columns: ['airline', 'flight'],
+    rows: [
+      { airline: ' ba ', flight: 'BA117' },
+      { airline: 'LH', flight: 'LH400' },
+      { airline: '  dl', flight: 'DL1' },
+    ],
+    task: 'Trim whitespace and make the airline column upper case.',
+    expected: [
+      { airline: 'BA', flight: 'BA117' },
+      { airline: 'LH', flight: 'LH400' },
+      { airline: 'DL', flight: 'DL1' },
+    ],
+    expectedStatus: 'done',
+    protected: ['flight'],
+    maxSteps: 7,
+    solution: { ops: [{ name: 'trim_whitespace', input: { column: 'airline' } }, { name: 'change_case', input: { column: 'airline', mode: 'upper' } }], finish: done },
+  },
+  {
+    id: 'dates_day_first',
+    why: 'Ambiguous dates: 03/11/2026 is 3 November because the instruction says day first. A wrong format guess silently corrupts data.',
+    columns: ['flight', 'date'],
+    rows: [
+      { flight: 'BA117', date: '03/11/2026' },
+      { flight: 'LH400', date: '25/12/2026' },
+      { flight: 'DL1', date: '01/01/2027' },
+    ],
+    task: 'Convert the date column to YYYY-MM-DD. The dates are written day first.',
+    expected: [
+      { flight: 'BA117', date: '2026-11-03' },
+      { flight: 'LH400', date: '2026-12-25' },
+      { flight: 'DL1', date: '2027-01-01' },
+    ],
+    expectedStatus: 'done',
+    protected: ['flight'],
+    maxSteps: 6,
+    solution: { ops: [{ name: 'parse_dates', input: { column: 'date', input_format: 'DD/MM/YYYY' } }], finish: done },
+  },
+  {
+    id: 'dedupe_keep_first',
+    why: 'Removes exact repeats by key and keeps the first row, not the last.',
+    columns: ['flight', 'date', 'seats'],
+    rows: [
+      { flight: 'BA117', date: '2026-11-03', seats: 180 },
+      { flight: 'BA117', date: '2026-11-03', seats: 999 },
+      { flight: 'BA117', date: '2026-11-04', seats: 180 },
+      { flight: 'LH400', date: '2026-11-03', seats: 220 },
+    ],
+    task: 'Remove duplicate flights (same flight and date). Keep the first one.',
+    expected: [
+      { flight: 'BA117', date: '2026-11-03', seats: 180 },
+      { flight: 'BA117', date: '2026-11-04', seats: 180 },
+      { flight: 'LH400', date: '2026-11-03', seats: 220 },
+    ],
+    expectedStatus: 'done',
+    protected: [],
+    maxSteps: 6,
+    solution: { ops: [{ name: 'drop_duplicates', input: { keys: ['flight', 'date'] } }], finish: done },
+  },
+  {
+    id: 'numbers_with_units',
+    why: 'Thousands separators, a unit suffix and an empty value; empty must become null, not 0.',
+    columns: ['flight', 'fuel_kg'],
+    rows: [
+      { flight: 'BA117', fuel_kg: '12,500' },
+      { flight: 'LH400', fuel_kg: '9,800.5' },
+      { flight: 'DL1', fuel_kg: '1,200 kg' },
+      { flight: 'AF9', fuel_kg: '' },
+    ],
+    task: 'Convert fuel_kg to numbers. Leave missing values missing (null).',
+    expected: [
+      { flight: 'BA117', fuel_kg: 12500 },
+      { flight: 'LH400', fuel_kg: 9800.5 },
+      { flight: 'DL1', fuel_kg: 1200 },
+      { flight: 'AF9', fuel_kg: null },
+    ],
+    expectedStatus: 'done',
+    protected: ['flight'],
+    maxSteps: 6,
+    solution: { ops: [{ name: 'parse_number', input: { column: 'fuel_kg' } }], finish: done },
+  },
+  {
+    id: 'fill_missing_with_zero',
+    why: 'Fills both null and empty text, and stores a real number 0, not the text "0".',
+    columns: ['flight', 'seats'],
+    rows: [
+      { flight: 'BA117', seats: 180 },
+      { flight: 'LH400', seats: '' },
+      { flight: 'DL1', seats: 220 },
+      { flight: 'AF9', seats: null },
+    ],
+    task: 'Fill missing seats with 0.',
+    expected: [
+      { flight: 'BA117', seats: 180 },
+      { flight: 'LH400', seats: 0 },
+      { flight: 'DL1', seats: 220 },
+      { flight: 'AF9', seats: 0 },
+    ],
+    expectedStatus: 'done',
+    protected: ['flight'],
+    maxSteps: 6,
+    solution: { ops: [{ name: 'fill_nulls', input: { column: 'seats', value: 0 } }], finish: done },
+  },
+  {
+    id: 'respect_protected_column',
+    why: 'Constraint following: a helpful agent may "tidy" booking_id too. The instruction forbids it.',
+    columns: ['booking_id', 'origin', 'destination'],
+    rows: [
+      { booking_id: 'ab-001', origin: 'lhr', destination: 'jfk' },
+      { booking_id: 'cd-002', origin: 'cdg', destination: 'sin' },
+    ],
+    task: 'Upper-case the origin and destination columns. Do not modify booking_id in any way.',
+    expected: [
+      { booking_id: 'ab-001', origin: 'LHR', destination: 'JFK' },
+      { booking_id: 'cd-002', origin: 'CDG', destination: 'SIN' },
+    ],
+    expectedStatus: 'done',
+    protected: ['booking_id'],
+    maxSteps: 7,
+    solution: {
+      ops: [{ name: 'change_case', input: { column: 'origin', mode: 'upper' } }, { name: 'change_case', input: { column: 'destination', mode: 'upper' } }],
+      finish: done,
+      protectedColumn: 'booking_id',
+    },
+  },
+  {
+    id: 'already_clean_no_op',
+    why: 'Regression guard: when the data is already clean the agent must change nothing and not invent work.',
+    columns: ['airline', 'flight', 'date'],
+    rows: [
+      { airline: 'BA', flight: 'BA117', date: '2026-11-03' },
+      { airline: 'LH', flight: 'LH400', date: '2026-11-04' },
+    ],
+    task: 'Clean this table: trim whitespace in airline, make sure dates are YYYY-MM-DD, and remove duplicate flights (same flight and date).',
+    expected: [
+      { airline: 'BA', flight: 'BA117', date: '2026-11-03' },
+      { airline: 'LH', flight: 'LH400', date: '2026-11-04' },
+    ],
+    expectedStatus: 'done',
+    protected: [],
+    maxSteps: 5,
+    solution: { ops: [], finish: done },
+  },
+  {
+    id: 'missing_column_must_refuse',
+    why: 'Honesty: the table has no co2_kg column. The right answer is cannot_complete with the table unchanged, not a guess.',
+    columns: ['flight', 'seats'],
+    rows: [
+      { flight: 'BA117', seats: 180 },
+      { flight: 'LH400', seats: 220 },
+    ],
+    task: 'Convert the co2_kg column to numbers.',
+    expected: [
+      { flight: 'BA117', seats: 180 },
+      { flight: 'LH400', seats: 220 },
+    ],
+    expectedStatus: 'cannot_complete',
+    protected: ['flight', 'seats'],
+    maxSteps: 5,
+    solution: { ops: [], finish: { status: 'cannot_complete', summary: 'There is no co2_kg column.' } },
+  },
+  {
+    id: 'order_matters_dedupe_after_clean',
+    why: 'Multi-step planning: the duplicates only exist after trimming, upper-casing and date conversion, so order matters.',
+    columns: ['airline', 'flight', 'date'],
+    rows: [
+      { airline: ' ba', flight: 'BA117', date: '3 Nov 2026' },
+      { airline: 'BA ', flight: 'BA117', date: '3 Nov 2026' },
+      { airline: 'lh', flight: 'LH400', date: '4 Nov 2026' },
+      { airline: 'LH', flight: 'LH400', date: '5 Nov 2026' },
+    ],
+    task:
+      'Clean the airline column (trim whitespace and upper-case it), convert the date column to YYYY-MM-DD (the dates look like "3 Nov 2026"), ' +
+      'then remove duplicates on airline, flight and date. Keep the first.',
+    expected: [
+      { airline: 'BA', flight: 'BA117', date: '2026-11-03' },
+      { airline: 'LH', flight: 'LH400', date: '2026-11-04' },
+      { airline: 'LH', flight: 'LH400', date: '2026-11-05' },
+    ],
+    expectedStatus: 'done',
+    protected: ['flight'],
+    maxSteps: 10,
+    solution: {
+      ops: [
+        { name: 'trim_whitespace', input: { column: 'airline' } },
+        { name: 'change_case', input: { column: 'airline', mode: 'upper' } },
+        { name: 'parse_dates', input: { column: 'date', input_format: 'D Mon YYYY' } },
+        { name: 'drop_duplicates', input: { keys: ['airline', 'flight', 'date'] } },
+      ],
+      finish: done,
+    },
+  },
+];
