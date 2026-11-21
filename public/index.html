@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messy CSV cleaner</title>
+<style>
+  :root { --bg:#fbfaf7; --surface:#fff; --ink:#1c1b19; --muted:#6b6860; --line:#e4e1d8; --accent:#2f5d50; --accent-ink:#fff; --pass:#2f7d4f; --pass-bg:#dff1e5; --fail:#b3412c; --fail-bg:#f8e0da; --warn-bg:#f6edcf; --code:#f1efe8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#151512; --surface:#1d1d19; --ink:#ecebe5; --muted:#a09d92; --line:#302f29; --accent:#7fc4ae; --accent-ink:#13201b; --pass:#7fd19b; --pass-bg:#1e3a2a; --fail:#f0937f; --fail-bg:#4a2a22; --warn-bg:#3d3719; --code:#26251f; } }
+  :root[data-theme="dark"] { --bg:#151512; --surface:#1d1d19; --ink:#ecebe5; --muted:#a09d92; --line:#302f29; --accent:#7fc4ae; --accent-ink:#13201b; --pass:#7fd19b; --pass-bg:#1e3a2a; --fail:#f0937f; --fail-bg:#4a2a22; --warn-bg:#3d3719; --code:#26251f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; letter-spacing:-.01em; }
+  h2 { font-size:17px; margin:0 0 10px; }
+  .lead { color:var(--muted); margin:0 0 16px; max-width:68ch; }
+  .notice { background:var(--warn-bg); border-radius:8px; padding:8px 12px; font-size:13px; margin-bottom:16px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; color:var(--muted); margin:10px 0 4px; }
+  textarea, input[type=text], select { width:100%; font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  textarea { font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace; min-height:150px; resize:vertical; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  button { font:inherit; font-size:14px; padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .step { display:grid; grid-template-columns:24px 160px 1fr; gap:8px; padding:6px 8px; border-radius:6px; font-size:13px; align-items:start; }
+  .step.err { background:var(--fail-bg); } .step .n { color:var(--muted); } .step .tool { font-weight:700; }
+  .thought { font-size:13px; color:var(--muted); font-style:italic; padding:4px 8px; }
+  pre { font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace; background:var(--code); border-radius:6px; padding:6px 9px; margin:0; white-space:pre-wrap; word-break:break-word; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { text-align:left; padding:6px 9px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  td.chg { background:var(--pass-bg); } td.chg s { color:var(--fail); margin-right:6px; opacity:.85; }
+  .badge { font-weight:700; padding:1px 9px; border-radius:99px; font-size:12px; }
+  .badge.p { background:var(--pass-bg); color:var(--pass); } .badge.f { background:var(--fail-bg); color:var(--fail); }
+  .meta { color:var(--muted); font-size:13px; }
+  .hidden { display:none; }
+  .toggle { position:fixed; top:12px; right:12px; }
+  @media (max-width:620px) { .step { grid-template-columns:22px 1fr; } .step .tool, .step .body { grid-column:2; } }
+</style>
+</head>
+<body>
+<button class="toggle" id="theme" aria-label="Toggle light and dark theme">Theme</button>
+<main>
+  <h1>Messy CSV cleaner</h1>
+  <p class="lead">Describe the cleaning in plain English. An AI agent works through the table one tool call at a time, and nothing is kept until you approve the before/after diff.</p>
+  <div class="notice" id="notice">A side project. Don't upload confidential data: your table is sent to the model provider chosen below. Tables are limited to 500 rows.</div>
+
+  <div class="card">
+    <h2>1. Your table</h2>
+    <div class="row" style="margin-top:0">
+      <button id="sample1">Load sample: messy flights</button>
+      <button id="sample2">Load sample: units and percentages</button>
+      <label class="meta" style="margin:0">or <input type="file" id="file" accept=".csv,text/csv"></label>
+    </div>
+    <label for="csv">CSV (first line is the header)</label>
+    <textarea id="csv" spellcheck="false" placeholder="airline,flight,date&#10; ba ,BA117,3 Nov 2026"></textarea>
+    <label for="task">2. What should the agent do?</label>
+    <input type="text" id="task" maxlength="600" placeholder="e.g. Upper-case the airline column and convert dates to YYYY-MM-DD">
+    <div class="row">
+      <label for="model" style="margin:0">Model</label>
+      <select id="model" style="width:auto"></select>
+      <button class="primary" id="run">Run the agent</button>
+      <span class="meta" id="status" role="status"></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="live"><h2>3. What the agent is doing</h2><div id="steps"></div></div>
+
+  <div class="card hidden" id="result">
+    <h2>4. Review the result</h2>
+    <div id="summary" style="margin-bottom:10px"></div>
+    <div class="scroll"><table id="diff"></table></div>
+    <p class="meta" id="diffnote"></p>
+    <div class="row" id="decision">
+      <button class="primary" id="approve">Approve and get the cleaned CSV</button>
+      <button id="reject">Reject</button>
+    </div>
+    <div class="row hidden" id="done"></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); for (const kid of kids.flat()) if (kid != null) e.append(kid.nodeType ? kid : document.createTextNode(String(kid))); return e; };
+
+const SAMPLES = {
+  sample1: {
+    task: 'Trim whitespace and upper-case the airline column, convert the date column (like "3 Nov 2026") to YYYY-MM-DD, then remove duplicates on airline, flight and date. Keep the first.',
+    csv: 'airline,flight,date,seats\n ba,BA117,3 Nov 2026,180\nBA ,BA117,3 Nov 2026,180\nlh,LH400,4 Nov 2026,220\nLH,LH400,5 Nov 2026,\n dl,DL1,6 Nov 2026,160\n',
+  },
+  sample2: {
+    task: 'Convert fuel to a number in kilograms (values ending in t are tonnes, 1 t = 1000 kg) and convert reduction to a fraction (25% becomes 0.25). Treat n/a as missing.',
+    csv: 'flight,fuel,reduction\nBA117,"12,500 kg",25%\nLH400,9.8 t,12.5%\nDL1,"1,200 kg",n/a\nAF9,0.5 t,0.4%\n',
+  },
+};
+for (const k of Object.keys(SAMPLES)) $(k).addEventListener('click', () => { $('csv').value = SAMPLES[k].csv; $('task').value = SAMPLES[k].task; });
+$('file').addEventListener('change', async (e) => { const f = e.target.files[0]; if (f) $('csv').value = await f.text(); });
+
+let current = null;
+
+(async () => {
+  try {
+    const { models, scripted } = await (await fetch('/api/models')).json();
+    if (!models.length) { $('status').textContent = 'No model is configured on the server.'; $('run').disabled = true; }
+    for (const m of models) $('model').append(el('option', { value: m }, m === 'scripted' ? 'scripted (no AI, rules only)' : m));
+    if (scripted) $('notice').textContent += ' The "scripted" option is a rule-based stand-in with no AI.';
+  } catch { $('status').textContent = 'Could not reach the server.'; $('run').disabled = true; }
+})();
+
+function addStep(e) {
+  const box = $('steps');
+  if (e.type === 'thought') { box.append(el('div', { class: 'thought' }, e.text)); return; }
+  box.append(el('div', { class: 'step' + (e.error ? ' err' : '') }, el('span', { class: 'n' }, e.step), el('span', { class: 'tool' }, e.tool),
+    el('div', { class: 'body' }, el('pre', {}, JSON.stringify(e.input)), el('pre', { style: 'margin-top:4px' }, e.output))));
+}
+
+function renderResult(r) {
+  $('result').classList.remove('hidden');
+  const ok = r.finish && r.finish.status === 'done';
+  const sum = $('summary'); sum.replaceChildren(
+    el('span', { class: 'badge ' + (ok ? 'p' : 'f') }, r.finish ? (ok ? 'DONE' : 'AGENT DECLINED') : 'NO RESULT: ' + r.stopReason),
+    ' ', r.finish ? r.finish.summary : 'The agent did not finish within its step limit, so nothing should be approved.',
+    el('div', { class: 'meta', style: 'margin-top:4px' }, `${r.steps} steps, ${r.toolErrors} tool errors, ${(r.usage.input + r.usage.output).toLocaleString('en-US')} tokens, ${(r.ms / 1000).toFixed(1)}s`));
+  const t = $('diff'); t.replaceChildren(el('thead', {}, el('tr', {}, r.columns.map((c) => el('th', {}, c)))));
+  const body = el('tbody');
+  const n = Math.min(r.after.length, 60);
+  for (let i = 0; i < n; i++) {
+    body.append(el('tr', {}, r.columns.map((c) => {
+      const a = r.after[i][c] ?? '';
+      const b = r.comparable && r.before[i] ? (r.before[i][c] ?? '') : null;
+      if (b !== null && String(b) !== String(a)) return el('td', { class: 'chg' }, el('s', {}, String(b) === '' ? '(empty)' : String(b)), String(a) === '' ? '(empty)' : String(a));
+      return el('td', {}, a === null ? '' : String(a));
+    })));
+  }
+  t.append(body);
+  $('diffnote').textContent = r.comparable
+    ? `${r.changedCells} cell(s) changed (green; the old value is struck through). ${r.afterRows} rows.`
+    : `Row count changed from ${r.beforeRows} to ${r.afterRows}, so cells are shown as they are after cleaning, without a cell-by-cell comparison.` + (r.afterRows > 60 ? ' Showing the first 60 rows.' : '');
+  $('decision').classList.toggle('hidden', !r.finish || !ok);
+  $('done').classList.add('hidden');
+}
+
+async function decide(decision) {
+  $('approve').disabled = $('reject').disabled = true;
+  const res = await fetch('/api/decision', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ runId: current, decision }) });
+  const j = await res.json();
+  const done = $('done'); done.classList.remove('hidden'); done.replaceChildren();
+  if (!res.ok) { done.append(el('span', { class: 'badge f' }, j.error || 'Failed')); return; }
+  if (decision === 'reject') { done.append(el('span', { class: 'meta' }, 'Rejected. Nothing was kept.')); return; }
+  const url = URL.createObjectURL(new Blob([j.csv], { type: 'text/csv' }));
+  const a = el('a', { href: url, download: 'cleaned.csv' }, 'Download cleaned.csv');
+  a.className = 'badge p'; done.append(a, el('span', { class: 'meta' }, 'Approved and logged (hashes only, not your data).'));
+}
+$('approve').addEventListener('click', () => decide('approve'));
+$('reject').addEventListener('click', () => decide('reject'));
+
+$('run').addEventListener('click', async () => {
+  $('result').classList.add('hidden'); $('steps').replaceChildren(); $('live').classList.remove('hidden');
+  $('run').disabled = true; $('status').textContent = 'Running...'; current = null;
+  $('approve').disabled = $('reject').disabled = false;
+  try {
+    const res = await fetch('/api/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ csv: $('csv').value, task: $('task').value, model: $('model').value }) });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Request failed (' + res.status + ')'); }
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line.trim()) continue;
+        const e = JSON.parse(line);
+        if (e.type === 'start') { current = e.runId; $('status').textContent = 'Running on ' + e.model + '...'; }
+        else if (e.type === 'tool' || e.type === 'thought') addStep(e);
+        else if (e.type === 'result') { current = e.runId; renderResult(e); }
+        else if (e.type === 'error') throw new Error(e.error);
+      }
+    }
+    $('status').textContent = 'Finished.';
+  } catch (e) { $('status').textContent = ''; $('steps').append(el('div', { class: 'step err' }, el('span', { class: 'n' }, '!'), el('span', { class: 'tool' }, 'Error'), el('div', { class: 'body' }, e.message))); }
+  finally { $('run').disabled = false; }
+});
+
+$('theme').addEventListener('click', () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; });
+</script>
+</body>
+</html>

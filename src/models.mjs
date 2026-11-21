@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
   if (!fs.existsSync(file)) return;
   for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*(ANTHROPIC_API_KEY|GEMINI_API_KEY)\s*=\s*(.+?)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    // Only fill variables that are not set at all; a variable set to an empty string on purpose stays empty.
+    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
 })();
 
@@ -85,7 +86,8 @@ export function geminiModel(name, apiKey = process.env.GEMINI_API_KEY) {
           if (p.functionCall) return { type: 'tool_use', id: `gem_${++counter}`, name: p.functionCall.name, input: p.functionCall.args ?? {}, raw: p };
           return { type: 'text', text: p.text ?? '' };
         });
-        return { content };
+        const u = json.usageMetadata ?? {};
+        return { content, usage: { input: u.promptTokenCount ?? 0, output: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) } };
       }
       throw new Error(`Gemini kept failing after retries. Last error: ${lastError}`);
     },
@@ -112,7 +114,11 @@ export function anthropicModel(name, apiKey = process.env.ANTHROPIC_API_KEY) {
         }
         if (!res.ok) throw new Error(`API ${res.status}: ${(await res.text()).slice(0, 300)}`);
         const json = await res.json();
-        return { content: json.content, stopReason: json.stop_reason };
+        return {
+          content: json.content,
+          stopReason: json.stop_reason,
+          usage: { input: json.usage?.input_tokens ?? 0, output: json.usage?.output_tokens ?? 0 },
+        };
       }
       throw new Error('API kept failing after retries');
     },
@@ -128,17 +134,17 @@ geminiModel.nextSlot = 0; // earliest time the next Gemini request may be sent
 export function mockModel(kind) {
   return {
     name: kind,
-    async respond({ messages }) {
-      const solution = mockModel.currentSolution;
-      if (!solution) throw new Error('mockModel.currentSolution not set');
+    async respond({ messages, meta }) {
+      const solution = meta?.solution;
+      if (!solution) throw new Error('mock models need meta.solution (the reference solution of the case)');
       let ops = [...solution.ops];
       if (kind === 'mock-lazy' && ops.length > 0) ops = ops.slice(0, -1);
       if (kind === 'mock-reckless' && solution.protectedColumn) ops.push({ name: 'change_case', input: { column: solution.protectedColumn, mode: 'upper' } });
       const turn = messages.filter((m) => m.role === 'assistant').length;
       if (turn < ops.length) {
-        return { content: [{ type: 'tool_use', id: nextId(), name: ops[turn].name, input: ops[turn].input }] };
+        return { content: [{ type: 'tool_use', id: nextId(), name: ops[turn].name, input: ops[turn].input }], usage: { input: 0, output: 0 } };
       }
-      return { content: [{ type: 'tool_use', id: nextId(), name: 'finish', input: solution.finish }] };
+      return { content: [{ type: 'tool_use', id: nextId(), name: 'finish', input: solution.finish }], usage: { input: 0, output: 0 } };
     },
   };
 }

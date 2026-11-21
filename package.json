@@ -5,8 +5,11 @@
   "type": "module",
   "description": "A small data-cleaning agent and an eval harness that measures it. Synthetic data only.",
   "scripts": {
-    "eval:mock": "node eval.mjs --model mock-good --runs 1",
-    "eval": "node eval.mjs --model claude-sonnet-5-5 --runs 3",
-    "test": "node test.mjs"
+    "test": "node test.mjs",
+    "eval:mock": "node eval.mjs --model mock-good --min-pass 1",
+    "eval": "node eval.mjs --model gemini-3.5-flash-lite --runs 3",
+    "report": "node report.mjs",
+    "demo": "node server.mjs",
+    "test:server": "node test-server.mjs"
   }
 }

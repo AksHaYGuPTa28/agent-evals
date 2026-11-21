@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 1. The cases themselves: each trap must really be a trap, each reference solution must reach the expected table.
+      - name: Case sanity tests
+        run: node test.mjs
+
+      # 1b. The demo server end to end (scripted model, no key): streaming, approval, audit log, limits.
+      - name: Demo server tests
+        run: node test-server.mjs
+
+      # 2. The harness: a perfect scripted model must score 100%.
+      - name: Harness check (perfect mock model must pass everything)
+        run: node eval.mjs --model mock-good --min-pass 1
+
+      # 3. The gate itself: a deliberately broken model must FAIL the gate, otherwise the gate proves nothing.
+      - name: Gate check (broken mock model must trip the pass-rate gate)
+        run: |
+          if node eval.mjs --model mock-lazy --min-pass 0.9; then
+            echo "The gate did not trip on a broken model."; exit 1
+          else
+            echo "The gate tripped as expected."
+          fi
+
+      # 4. A real model against the committed baseline, only when a key is configured as a repository secret.
+      #    One run per case keeps it cheap, so a single unlucky run can show as a regression: re-run before panicking.
+      - name: Real-model regression check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_API_KEY" ] && [ -f baselines/gemini-3.5-flash-lite.json ]; then
+            node eval.mjs --model gemini-3.5-flash-lite --runs 1 --baseline baselines/gemini-3.5-flash-lite.json
+          else
+            echo "No GEMINI_API_KEY secret or no baseline file, skipping the real-model check."
+          fi

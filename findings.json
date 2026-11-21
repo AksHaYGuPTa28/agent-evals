@@ -1,0 +1,17 @@
+[
+  {
+    "tag": "Fix that failed",
+    "title": "A better error message did nothing",
+    "body": "One case (14 messy category spellings) failed every run: the agent hit the step limit with 30 tool errors. Making the error list the exact values to copy changed nothing. The traces showed the real cause: the tool took an object with free-form keys, and the model could not write keys containing spaces or dots (it sent prem_econ, Bus_, then Bus_z, Bus_g). Switching the tool to a list of {from, to} pairs took the case from 0/3 to 3/3."
+  },
+  {
+    "tag": "Eval validity",
+    "title": "A pass does not prove the model saw the trap",
+    "body": "Several traps are easy to pass because the tool descriptions warn about them (for example that a plain number parse does not convert units). A model can pass by reading the docs without understanding the problem. Making those descriptions neutral and re-running is the honest way to measure it."
+  },
+  {
+    "tag": "Judgment call",
+    "title": "Refuse, or proceed and disclose?",
+    "body": "When every date could be day-first or month-first, the model picked day-first, converted the column and said so in its summary, instead of stopping to ask. The case expects a refusal, so it fails. Whether disclose-and-proceed should count as a pass is a product decision, and the report keeps it visible."
+  }
+]

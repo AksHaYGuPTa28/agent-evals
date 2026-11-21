@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent eval report</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #e4e1d8;
+    --accent: #2f5d50; --pass: #2f7d4f; --pass-bg: #dff1e5; --fail: #b3412c; --fail-bg: #f8e0da; --warn-bg: #f6edcf; --code: #f1efe8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151512; --surface: #1d1d19; --ink: #ecebe5; --muted: #a09d92; --line: #302f29;
+      --accent: #7fc4ae; --pass: #7fd19b; --pass-bg: #1e3a2a; --fail: #f0937f; --fail-bg: #4a2a22; --warn-bg: #3d3719; --code: #26251f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151512; --surface: #1d1d19; --ink: #ecebe5; --muted: #a09d92; --line: #302f29;
+    --accent: #7fc4ae; --pass: #7fd19b; --pass-bg: #1e3a2a; --fail: #f0937f; --fail-bg: #4a2a22; --warn-bg: #3d3719; --code: #26251f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 80px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 36px 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 8px; max-width: 70ch; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  .cell { display: inline-block; min-width: 46px; text-align: center; padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; border: 1px solid transparent; }
+  .cell.p { background: var(--pass-bg); color: var(--pass); } .cell.f { background: var(--fail-bg); color: var(--fail); } .cell.m { background: var(--warn-bg); color: var(--ink); }
+  .cell.sel, tr.case-row.sel .name { outline: 2px solid var(--accent); }
+  tr.case-row { cursor: pointer; } tr.case-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .findings { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .findings .card h3 { margin: 0 0 6px; font-size: 15px; } .findings .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--code); color: var(--muted); margin-right: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .run { border-top: 1px solid var(--line); padding: 12px 0; }
+  .run:first-child { border-top: 0; }
+  .runhead { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; font-size: 14px; }
+  .badge { font-weight: 700; padding: 1px 9px; border-radius: 99px; font-size: 12px; } .badge.p { background: var(--pass-bg); color: var(--pass); } .badge.f { background: var(--fail-bg); color: var(--fail); }
+  .meta { color: var(--muted); font-size: 13px; }
+  .step { display: grid; grid-template-columns: 26px 150px 1fr; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 13px; align-items: start; }
+  .step.err { background: var(--fail-bg); }
+  .step .n { color: var(--muted); } .step .tool { font-weight: 700; }
+  code, pre { font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: var(--code); border-radius: 6px; padding: 8px 10px; margin: 0; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+  .kv { margin: 3px 0; } .kv b { color: var(--muted); font-weight: 600; margin-right: 6px; }
+  .reason { color: var(--fail); font-size: 13px; margin: 4px 0; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button { font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .tabs button.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .toggle { position: fixed; top: 12px; right: 12px; font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 620px) { .step { grid-template-columns: 22px 1fr; } .step .tool { grid-column: 2; } .step .body { grid-column: 2; } }
+</style>
+</head>
+<body>
+<button class="toggle" id="toggle" aria-label="Toggle light and dark theme">Theme</button>
+<main>
+  <h1>Agent eval report</h1>
+  <p class="lead" id="lead"></p>
+
+  <h2>Findings</h2>
+  <div class="findings" id="findings"></div>
+
+  <h2>Leaderboard</h2>
+  <div class="card scroll"><table id="board"></table></div>
+  <p class="meta" id="boardnote"></p>
+
+  <h2>Cases by model</h2>
+  <p class="meta">Each cell is passes / runs. Click a case name or a cell to open the traces.</p>
+  <div class="card scroll"><table id="heat"></table></div>
+
+  <h2 id="drill-title">Case detail</h2>
+  <div class="card" id="drill"><p class="meta">Pick a case above.</p></div>
+
+  <footer>Synthetic data only. Scores come from small models and a few runs per case, so read them as signals, not rankings. Generated <span id="gen"></span>.</footer>
+</main>
+<script>
+const D = /*DATA*/null;
+
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined) e.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return e;
+};
+const pct = (x) => Math.round(x * 100) + '%';
+const num = (x) => x.toLocaleString('en-US');
+const secs = (ms) => (ms / 1000).toFixed(1) + 's';
+const short = (m) => m.replace(/^gemini-/, 'g-');
+
+const runs = D.runs;
+document.getElementById('gen').textContent = D.generated;
+document.getElementById('lead').textContent =
+  'A small tool-using data-cleaning agent, scored on ' + (runs[0] ? Object.keys(runs[0].perCase).length : 0) +
+  ' cases with repeated runs. Every number below links to the exact trace that produced it.';
+
+// Findings
+const F = document.getElementById('findings');
+for (const f of D.findings) F.append(el('div', { class: 'card' }, el('h3', {}, el('span', { class: 'tag' }, f.tag), f.title), el('p', {}, f.body)));
+if (!D.findings.length) F.parentNode.removeChild(F.previousElementSibling), F.remove();
+
+// Leaderboard
+const board = document.getElementById('board');
+const heads = ['Model', 'Mean pass', 'Every run passes', 'Avg steps', 'Tokens / run', 'Avg time / run', 'Cost / run', 'Runs per case', 'Date'];
+board.append(el('thead', {}, el('tr', {}, heads.map((h, i) => el('th', { class: i > 0 && i < 8 ? 'num' : '' }, h)))));
+const tb = el('tbody');
+const sorted = [...runs].sort((a, b) => b.meanPass - a.meanPass || b.allPass - a.allPass);
+for (const r of sorted) {
+  const n = r.detail.length || 1;
+  const tok = r.detail.reduce((s, d) => s + (d.usage ? d.usage.input + d.usage.output : 0), 0) / n;
+  const ms = r.detail.reduce((s, d) => s + (d.wallMs || 0), 0) / n;
+  const cost = r.totals && r.totals.costUsd != null ? '$' + (r.totals.costUsd / n).toFixed(4) : 'n/a';
+  const steps = Object.values(r.perCase).reduce((s, p) => s + p.avgSteps, 0) / Object.keys(r.perCase).length;
+  tb.append(el('tr', {}, el('td', {}, r.model), el('td', { class: 'num' }, pct(r.meanPass)), el('td', { class: 'num' }, pct(r.allPass)),
+    el('td', { class: 'num' }, steps.toFixed(1)), el('td', { class: 'num' }, tok ? num(Math.round(tok)) : 'n/a'),
+    el('td', { class: 'num' }, ms ? secs(ms) : 'n/a'), el('td', { class: 'num' }, cost), el('td', { class: 'num' }, r.runs), el('td', {}, r.when.slice(0, 10))));
+}
+board.append(tb);
+document.getElementById('boardnote').textContent = 'Cost shows n/a unless prices are supplied in pricing.json. Token and time figures need a run made with the current runner.';
+
+// Heatmap
+const caseIds = [];
+for (const r of runs) for (const id of Object.keys(r.perCase)) if (!caseIds.includes(id)) caseIds.push(id);
+const heat = document.getElementById('heat');
+heat.append(el('thead', {}, el('tr', {}, el('th', {}, 'Case'), runs.map((r) => el('th', { class: 'num' }, short(r.model))))));
+const hb = el('tbody');
+let selected = null;
+const rowEls = {};
+for (const id of caseIds) {
+  const tr = el('tr', { class: 'case-row', onclick: () => open(id) }, el('td', { class: 'name' }, id));
+  for (const r of runs) {
+    const p = r.perCase[id];
+    if (!p) { tr.append(el('td', { class: 'num' }, el('span', { class: 'cell m' }, '-'))); continue; }
+    const cls = p.passes === p.runs ? 'p' : p.passes === 0 ? 'f' : 'm';
+    tr.append(el('td', { class: 'num' }, el('span', { class: 'cell ' + cls }, p.passes + '/' + p.runs)));
+  }
+  rowEls[id] = tr; hb.append(tr);
+}
+heat.append(hb);
+
+// Drill-down
+const drill = document.getElementById('drill');
+let modelFilter = null;
+function table(cols, rows) {
+  if (!rows) return el('p', { class: 'meta' }, 'Not recorded in this run file.');
+  return el('div', { class: 'scroll' }, el('table', {}, el('thead', {}, el('tr', {}, cols.map((c) => el('th', {}, c)))),
+    el('tbody', {}, rows.map((r) => el('tr', {}, cols.map((c) => el('td', {}, r[c] === null ? 'null' : String(r[c]))))))));
+}
+function open(id) {
+  if (selected && rowEls[selected]) rowEls[selected].classList.remove('sel');
+  selected = id; rowEls[id].classList.add('sel');
+  const info = runs.map((r) => r.caseInfo && r.caseInfo[id]).find(Boolean);
+  drill.replaceChildren();
+  document.getElementById('drill-title').textContent = 'Case detail: ' + id;
+  if (info) {
+    drill.append(el('div', { class: 'kv' }, el('b', {}, 'Why this case'), info.why), el('div', { class: 'kv' }, el('b', {}, 'Task'), info.task),
+      el('div', { class: 'kv' }, el('b', {}, 'Expected status'), info.expectedStatus, '  ', el('b', {}, 'Step budget'), info.budget));
+    drill.append(el('div', { class: 'kv', style: 'margin-top:10px' }, el('b', {}, 'Input table')), table(info.columns, info.input),
+      el('div', { class: 'kv', style: 'margin-top:10px' }, el('b', {}, 'Expected result')), table(info.columns, info.expected));
+  }
+  const models = runs.filter((r) => r.perCase[id]);
+  const tabs = el('div', { class: 'tabs' });
+  const body = el('div');
+  const show = (m) => {
+    modelFilter = m.model; body.replaceChildren(); [...tabs.children].forEach((b) => b.classList.toggle('on', b.dataset.m === m.model));
+    const rs = m.detail.filter((d) => d.case === id);
+    for (const d of rs) {
+      const head = el('div', { class: 'runhead' }, el('span', { class: 'badge ' + (d.pass ? 'p' : 'f') }, d.pass ? 'PASS' : d.crashed ? 'CRASHED' : 'FAIL'),
+        el('span', {}, 'Run ' + d.run), el('span', { class: 'meta' }, d.steps + ' steps'),
+        d.usage ? el('span', { class: 'meta' }, num(d.usage.input + d.usage.output) + ' tokens') : null,
+        d.wallMs ? el('span', { class: 'meta' }, secs(d.wallMs)) : null, d.toolErrors ? el('span', { class: 'meta' }, d.toolErrors + ' tool errors') : null);
+      const run = el('div', { class: 'run' }, head);
+      for (const r of d.reasons || []) run.append(el('div', { class: 'reason' }, r));
+      if (d.summary) run.append(el('div', { class: 'kv' }, el('b', {}, 'Agent summary'), d.summary));
+      for (const s of d.trace || []) {
+        run.append(el('div', { class: 'step' + (s.error ? ' err' : '') }, el('span', { class: 'n' }, s.step), el('span', { class: 'tool' }, s.tool),
+          el('div', { class: 'body' }, el('pre', {}, JSON.stringify(s.input)), el('pre', { style: 'margin-top:4px' }, s.output))));
+      }
+      if (!d.pass && d.finalRows) run.append(el('div', { class: 'kv', style: 'margin-top:8px' }, el('b', {}, 'Final table the agent produced')), table(info ? info.columns : Object.keys(d.finalRows[0] || {}), d.finalRows));
+      body.append(run);
+    }
+  };
+  for (const m of models) tabs.append(el('button', { 'data-m': m.model, onclick: () => show(m) }, m.model));
+  drill.append(el('h3', { style: 'margin:16px 0 8px;font-size:15px' }, 'Traces'), tabs, body);
+  show(models.find((m) => m.model === modelFilter) || models[0]);
+  drill.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+if (caseIds.length) { /* leave closed until a case is picked */ }
+
+// Theme toggle
+const root = document.documentElement;
+document.getElementById('toggle').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+});
+</script>
+</body>
+</html>
