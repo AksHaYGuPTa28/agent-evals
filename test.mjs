@@ -113,4 +113,41 @@ test('multiply_column refuses non-numeric text and changes nothing', () => {
   assert.deepEqual(t.rows, [{ x: '5' }, { x: 'abc' }]);
 });
 
+// The agent loop: undo restores the table, and a failed operation is not recorded as a change.
+const { runAgent } = await import("./src/agent.mjs");
+const scripted = (steps) => ({ name: "scripted", async respond({ messages }) {
+  const turn = messages.filter((m) => m.role === "assistant").length;
+  const s = steps[turn] ?? { name: "finish", input: { status: "done", summary: "ok" } };
+  return { content: [{ type: "tool_use", id: "t" + turn, name: s.name, input: s.input }], usage: { input: 0, output: 0 } };
+} });
+
+{
+  const table = createTable(["x"], [{ x: "9.8 t" }, { x: "1,200 kg" }]);
+  const r = await runAgent({ model: scripted([
+    { name: "parse_number", input: { column: "x" } },                       // loses the unit: 9.8 and 1200
+    { name: "undo", input: {} },                                            // back to the original text
+    { name: "parse_quantity", input: { column: "x", unit_factors: { kg: 1, t: 1000 } } },
+  ]), task: "t", table });
+  passed++; console.log("ok  undo lets the agent recover from a wrong step");
+  assert.deepEqual(r.table.rows, [{ x: 9800 }, { x: 1200 }]);
+  assert.equal(r.toolErrors, 0);
+}
+{
+  const table = createTable(["x"], [{ x: "abc" }]);
+  const r = await runAgent({ model: scripted([
+    { name: "parse_number", input: { column: "x" } },                       // fails, changes nothing, must not be recorded
+    { name: "undo", input: {} },                                            // so there is nothing to undo
+  ]), task: "t", table });
+  passed++; console.log("ok  a failed operation is not recorded, so undo has nothing to undo");
+  assert.equal(r.trace.filter((s) => s.error).length, 2);
+  assert.deepEqual(r.table.rows, [{ x: "abc" }]);
+}
+{
+  const table = createTable(["x"], [{ x: " a " }]);
+  const r = await runAgent({ model: scripted([{ name: "trim_whitespace", input: { column: "x" } }, { name: "undo", input: {} }, { name: "undo", input: {} }]), task: "t", table });
+  passed++; console.log("ok  the input table is never modified, and a second undo reports nothing to undo");
+  assert.deepEqual(table.rows, [{ x: " a " }]);
+  assert.equal(r.trace.filter((s) => s.tool === "undo").at(-1).error, true);
+}
+
 console.log(`\n${passed} sanity tests passed`);

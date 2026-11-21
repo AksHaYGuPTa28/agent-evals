@@ -11,7 +11,7 @@ Rules:
 2. Do only what the user asked. Never change a column the user did not ask you to change, even if it looks messy.
 3. Apply operations one at a time. If a tool returns an error, read it and fix your next call. Do not repeat the same failing call.
 4. When the order of operations matters (for example duplicates that only appear after cleaning), do the cleaning first.
-5. Before finishing, use show_rows to check the result.
+5. After a change, and before finishing, use show_rows to check the result against the original values. If a result looks wrong (for example numbers far too large or too small, or values that look garbled), use undo and try again with different arguments. Do not keep re-reading a table you already know is wrong.
 6. If the request cannot be done with this table (for example it names a column that does not exist), do not guess or invent a substitute. Call finish with status "cannot_complete" and say why.
 7. Dates written like 03/04/2026 can be day-first or month-first. Decide the order like this:
    a. If the user said which order, use it.
@@ -32,6 +32,7 @@ export async function runAgent({ model, task, table, maxSteps = 12, meta, onEven
   const messages = [{ role: 'user', content: task }];
   const trace = [];
   const calls = [];
+  const history = []; // snapshots before each change, so the agent can undo a wrong step
   let finish = null;
   let toolErrors = 0;
   let steps = 0;
@@ -64,8 +65,15 @@ export async function runAgent({ model, task, table, maxSteps = 12, meta, onEven
           output = 'Recorded.';
         } else if (READ_ONLY[call.name]) {
           output = READ_ONLY[call.name].run(t, call.input);
+        } else if (call.name === 'undo') {
+          const prev = history.pop();
+          if (!prev) throw new Error('Nothing to undo.');
+          t.columns = prev.columns; t.rows = prev.rows;
+          output = `Undone. The table is back to how it was before the last change (${t.rows.length} rows).`;
         } else if (OPERATIONS[call.name]) {
+          const before = cloneTable(t);
           output = OPERATIONS[call.name].run(t, call.input);
+          history.push(before); // only recorded when the change succeeded
         } else {
           throw new Error(`Unknown tool "${call.name}"`);
         }

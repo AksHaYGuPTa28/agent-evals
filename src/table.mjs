@@ -99,7 +99,7 @@ export const OPERATIONS = {
         column: { type: 'string' },
         input_format: { type: 'string', enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'D Mon YYYY'] },
         input_formats: { type: 'array', items: { type: 'string', enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'D Mon YYYY'] } },
-        on_invalid: { type: 'string', enum: ['error', 'null'] },
+        on_invalid: { type: 'string', enum: ['error', 'null'], description: 'What to do with a value that is not a valid date: "error" stops and changes nothing; "null" turns it into null.' },
       },
       required: ['column'],
     },
@@ -128,7 +128,7 @@ export const OPERATIONS = {
       'This does NOT convert units: "9.8 t" becomes 9.8. Use parse_quantity when units differ. ' +
       'decimal is "." (default; commas are thousands separators) or "," (European: dots are thousands separators, comma is the decimal mark). ' +
       'Empty values become null. If any value cannot be read, nothing is changed.',
-    input_schema: { type: 'object', properties: { column: { type: 'string' }, decimal: { type: 'string', enum: ['.', ','] } }, required: ['column'] },
+    input_schema: { type: 'object', properties: { column: { type: 'string' }, decimal: { type: 'string', enum: ['.', ','], description: 'The decimal mark used in the text. "." means 1,234.5 (commas are thousands separators). "," means 1.234,5 (dots are thousands separators, comma is the decimal mark).' } }, required: ['column'] },
     run(t, { column, decimal = '.' }) {
       needColumn(t, column);
       const out = [];
@@ -152,7 +152,7 @@ export const OPERATIONS = {
       'A value with an unknown or missing unit is an error and nothing is changed. Empty values become null.',
     input_schema: {
       type: 'object',
-      properties: { column: { type: 'string' }, unit_factors: { type: 'object', additionalProperties: { type: 'number' } }, decimal: { type: 'string', enum: ['.', ','] } },
+      properties: { column: { type: 'string' }, unit_factors: { type: 'object', additionalProperties: { type: 'number' }, description: 'Multiplier into the target unit for each unit suffix, for example {"kg": 1, "t": 1000} converts everything to kg.' }, decimal: { type: 'string', enum: ['.', ','], description: 'The decimal mark used in the text. "." means 1,234.5 (commas are thousands separators). "," means 1.234,5 (dots are thousands separators, comma is the decimal mark).' } },
       required: ['column', 'unit_factors'],
     },
     run(t, { column, unit_factors, decimal = '.' }) {
@@ -418,10 +418,16 @@ const NEUTRAL = {
   rename_column: 'Rename a column.',
 };
 
+export const UNDO = {
+  description: 'Undo the last change to the table (not read-only calls). Use it when a result looks wrong, then try again with different arguments.',
+  input_schema: { type: 'object', properties: {} },
+};
+
 export function toolDefinitions({ neutral = false } = {}) {
   const defs = [];
   for (const [name, o] of Object.entries(READ_ONLY)) defs.push({ name, description: o.description, input_schema: o.input_schema });
   for (const [name, o] of Object.entries(OPERATIONS)) defs.push({ name, description: neutral && NEUTRAL[name] ? NEUTRAL[name] : o.description, input_schema: o.input_schema });
+  defs.push({ name: 'undo', description: UNDO.description, input_schema: UNDO.input_schema });
   defs.push({ name: 'finish', description: FINISH.description, input_schema: FINISH.input_schema });
   return defs;
 }
