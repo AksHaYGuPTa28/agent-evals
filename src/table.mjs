@@ -216,18 +216,29 @@ export const OPERATIONS = {
   replace_values: {
     description:
       'Replace specific placeholder values in one column (matched ignoring case and surrounding spaces) with a new value, ' +
-      'for example turn "N/A" and "-" into null. with may be null.',
+      'for example turn "N/A" and "-" into null. with may be null. ' +
+      'To also replace empty or blank text, set include_blank to true instead of listing an empty string in values.',
     input_schema: {
       type: 'object',
-      properties: { column: { type: 'string' }, values: { type: 'array', items: { type: 'string' } }, with: { type: ['string', 'number', 'null'] } },
-      required: ['column', 'values', 'with'],
+      properties: {
+        column: { type: 'string' },
+        values: { type: 'array', items: { type: 'string' }, description: 'The placeholder texts to replace, written exactly as they appear in the data.' },
+        with: { type: ['string', 'number', 'null'] },
+        include_blank: { type: 'boolean', description: 'Also replace values that are empty or only spaces.' },
+      },
+      required: ['column', 'with'],
     },
-    run(t, { column, values, with: replacement }) {
+    run(t, { column, values = [], with: replacement, include_blank = false }) {
       needColumn(t, column);
+      if (!Array.isArray(values)) throw new Error('values must be a list of strings');
+      if (values.length === 0 && !include_blank) throw new Error('Give values to replace, or set include_blank to true. Nothing was changed.');
       const targets = new Set(values.map((v) => String(v).trim().toLowerCase()));
       let changed = 0;
       for (const r of t.rows) {
-        if (typeof r[column] === 'string' && targets.has(r[column].trim().toLowerCase())) { r[column] = replacement; changed++; }
+        const v = r[column];
+        if (typeof v !== 'string') continue;
+        const key = v.trim().toLowerCase();
+        if (targets.has(key) || (include_blank && key === '')) { r[column] = replacement; changed++; }
       }
       return `Replaced ${changed} value(s) in "${column}".`;
     },

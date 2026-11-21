@@ -87,7 +87,8 @@ export function geminiModel(name, apiKey = process.env.GEMINI_API_KEY) {
           return { type: 'text', text: p.text ?? '' };
         });
         const u = json.usageMetadata ?? {};
-        return { content, usage: { input: u.promptTokenCount ?? 0, output: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) } };
+        // finishReason explains an empty reply (for example MALFORMED_FUNCTION_CALL), which the agent records in its trace.
+        return { content, stopReason: json.candidates?.[0]?.finishReason, usage: { input: u.promptTokenCount ?? 0, output: (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0) } };
       }
       throw new Error(`Gemini kept failing after retries. Last error: ${lastError}`);
     },

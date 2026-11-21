@@ -37,6 +37,7 @@ export async function runAgent({ model, task, table, maxSteps = 12, meta, onEven
   let toolErrors = 0;
   let steps = 0;
   let stopReason = 'max_steps';
+  let nudges = 0;
   const usage = { input: 0, output: 0 };
   const started = Date.now();
 
@@ -49,11 +50,25 @@ export async function runAgent({ model, task, table, maxSteps = 12, meta, onEven
     usage.input += res.usage?.input ?? 0;
     usage.output += res.usage?.output ?? 0;
     calls.push({ step: steps, ms, input: res.usage?.input ?? 0, output: res.usage?.output ?? 0 });
-    messages.push({ role: 'assistant', content: res.content });
+    // An empty reply (for example a malformed tool call the API could not parse) still needs a turn in the conversation.
+    messages.push({ role: 'assistant', content: res.content.length ? res.content : [{ type: 'text', text: '(no valid reply)' }] });
     for (const b of res.content) if (b.type === 'text' && b.text.trim()) onEvent({ type: 'thought', step: steps, text: b.text });
 
     const toolCalls = res.content.filter((b) => b.type === 'tool_use');
-    if (toolCalls.length === 0) { stopReason = 'no_tool_call'; break; }
+    if (toolCalls.length === 0) {
+      // A malformed or empty reply is not the end of the run: remind the model what to do, at most twice.
+      if (nudges < 2 && steps < maxSteps) {
+        nudges++;
+        const why = res.stopReason ?? 'unknown';
+        const entry = { step: steps, tool: '(no tool call)', input: {}, error: true, output: `The model returned no usable tool call (${why}). It was reminded to call a tool.` };
+        trace.push(entry);
+        onEvent({ type: 'tool', ...entry, rows: t.rows.length });
+        messages.push({ role: 'user', content: 'Your last reply did not contain a valid tool call. Call a tool now, and use finish when you are done.' });
+        continue;
+      }
+      stopReason = 'no_tool_call';
+      break;
+    }
 
     const results = [];
     for (const call of toolCalls) {

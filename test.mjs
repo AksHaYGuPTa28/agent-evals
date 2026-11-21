@@ -184,4 +184,33 @@ const scripted = (steps) => ({ name: "scripted", async respond({ messages }) {
   assert.equal(r.trace.filter((s) => s.tool === "undo").at(-1).error, true);
 }
 
+test('replace_values include_blank replaces empty and space-only text without listing an empty string', () => {
+  const t = createTable(['x'], [{ x: '' }, { x: '   ' }, { x: 'keep' }, { x: '-' }]);
+  OPERATIONS.replace_values.run(t, { column: 'x', with: null, include_blank: true });
+  assert.deepEqual(t.rows.map((r) => r.x), [null, null, 'keep', '-']);
+  OPERATIONS.replace_values.run(t, { column: 'x', values: ['-'], with: null });
+  assert.deepEqual(t.rows.map((r) => r.x), [null, null, 'keep', null]);
+});
+
+test('replace_values with no values and no include_blank refuses instead of doing nothing silently', () => {
+  const t = createTable(['x'], [{ x: 'a' }]);
+  assert.throws(() => OPERATIONS.replace_values.run(t, { column: 'x', with: null }), /include_blank/);
+});
+
+{
+  // An empty reply (for example a malformed tool call) is retried with a reminder, at most twice.
+  const emptyThenFinish = { name: 's', i: 0, async respond() { return this.i++ < 2 ? { content: [], stopReason: 'MALFORMED_FUNCTION_CALL', usage: { input: 0, output: 0 } } : { content: [{ type: 'tool_use', id: 'f', name: 'finish', input: { status: 'done', summary: 'ok' } }], usage: { input: 0, output: 0 } }; } };
+  const r = await runAgent({ model: emptyThenFinish, task: 't', table: createTable(['x'], [{ x: '1' }]) });
+  passed++; console.log('ok  an empty or malformed reply is retried with a reminder and the run can still finish');
+  assert.equal(r.stopReason, 'finished');
+  assert.equal(r.trace.filter((s) => s.tool === '(no tool call)').length, 2);
+  assert.match(r.trace[0].output, /MALFORMED_FUNCTION_CALL/);
+
+  const alwaysEmpty = { name: 's', async respond() { return { content: [], usage: { input: 0, output: 0 } }; } };
+  const r2 = await runAgent({ model: alwaysEmpty, task: 't', table: createTable(['x'], [{ x: '1' }]) });
+  passed++; console.log('ok  a model that keeps returning nothing is reminded twice, then the run ends');
+  assert.equal(r2.stopReason, 'no_tool_call');
+  assert.equal(r2.steps, 3);
+}
+
 console.log(`\n${passed} sanity tests passed`);
