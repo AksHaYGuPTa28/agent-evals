@@ -1,0 +1,643 @@
+{
+ "source": "OpenFlights (https://github.com/jpatokal/openflights), data/airlines.dat and data/airports.dat",
+ "license": "Open Database License (ODbL) 1.0; attribution to OpenFlights. This file is a small extract.",
+ "selection": "airlines: first 30 rows. airports: every 256th row (0-based index % 256 === 0).",
+ "airlines": {
+  "columns": [
+   "id",
+   "name",
+   "alias",
+   "iata",
+   "icao",
+   "callsign",
+   "country",
+   "active"
+  ],
+  "rows": [
+   {
+    "id": "-1",
+    "name": "Unknown",
+    "alias": "\\N",
+    "iata": "-",
+    "icao": "N/A",
+    "callsign": "\\N",
+    "country": "\\N",
+    "active": "Y"
+   },
+   {
+    "id": "1",
+    "name": "Private flight",
+    "alias": "\\N",
+    "iata": "-",
+    "icao": "N/A",
+    "callsign": "",
+    "country": "",
+    "active": "Y"
+   },
+   {
+    "id": "2",
+    "name": "135 Airways",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "GNL",
+    "callsign": "GENERAL",
+    "country": "United States",
+    "active": "N"
+   },
+   {
+    "id": "3",
+    "name": "1Time Airline",
+    "alias": "\\N",
+    "iata": "1T",
+    "icao": "RNX",
+    "callsign": "NEXTIME",
+    "country": "South Africa",
+    "active": "Y"
+   },
+   {
+    "id": "4",
+    "name": "2 Sqn No 1 Elementary Flying Training School",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "WYT",
+    "callsign": "",
+    "country": "United Kingdom",
+    "active": "N"
+   },
+   {
+    "id": "5",
+    "name": "213 Flight Unit",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "TFU",
+    "callsign": "",
+    "country": "Russia",
+    "active": "N"
+   },
+   {
+    "id": "6",
+    "name": "223 Flight Unit State Airline",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "CHD",
+    "callsign": "CHKALOVSK-AVIA",
+    "country": "Russia",
+    "active": "N"
+   },
+   {
+    "id": "7",
+    "name": "224th Flight Unit",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "TTF",
+    "callsign": "CARGO UNIT",
+    "country": "Russia",
+    "active": "N"
+   },
+   {
+    "id": "8",
+    "name": "247 Jet Ltd",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "TWF",
+    "callsign": "CLOUD RUNNER",
+    "country": "United Kingdom",
+    "active": "N"
+   },
+   {
+    "id": "9",
+    "name": "3D Aviation",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "SEC",
+    "callsign": "SECUREX",
+    "country": "United States",
+    "active": "N"
+   },
+   {
+    "id": "10",
+    "name": "40-Mile Air",
+    "alias": "\\N",
+    "iata": "Q5",
+    "icao": "MLA",
+    "callsign": "MILE-AIR",
+    "country": "United States",
+    "active": "Y"
+   },
+   {
+    "id": "11",
+    "name": "4D Air",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "QRT",
+    "callsign": "QUARTET",
+    "country": "Thailand",
+    "active": "N"
+   },
+   {
+    "id": "12",
+    "name": "611897 Alberta Limited",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "THD",
+    "callsign": "DONUT",
+    "country": "Canada",
+    "active": "N"
+   },
+   {
+    "id": "13",
+    "name": "Ansett Australia",
+    "alias": "\\N",
+    "iata": "AN",
+    "icao": "AAA",
+    "callsign": "ANSETT",
+    "country": "Australia",
+    "active": "Y"
+   },
+   {
+    "id": "14",
+    "name": "Abacus International",
+    "alias": "\\N",
+    "iata": "1B",
+    "icao": "",
+    "callsign": "",
+    "country": "Singapore",
+    "active": "Y"
+   },
+   {
+    "id": "15",
+    "name": "Abelag Aviation",
+    "alias": "\\N",
+    "iata": "W9",
+    "icao": "AAB",
+    "callsign": "ABG",
+    "country": "Belgium",
+    "active": "N"
+   },
+   {
+    "id": "16",
+    "name": "Army Air Corps",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAC",
+    "callsign": "ARMYAIR",
+    "country": "United Kingdom",
+    "active": "N"
+   },
+   {
+    "id": "17",
+    "name": "Aero Aviation Centre Ltd.",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAD",
+    "callsign": "SUNRISE",
+    "country": "Canada",
+    "active": "N"
+   },
+   {
+    "id": "18",
+    "name": "Aero Servicios Ejecutivos Internacionales",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "SII",
+    "callsign": "ASEISA",
+    "country": "Mexico",
+    "active": "N"
+   },
+   {
+    "id": "19",
+    "name": "Aero Biniza",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "BZS",
+    "callsign": "BINIZA",
+    "country": "Mexico",
+    "active": "N"
+   },
+   {
+    "id": "20",
+    "name": "Aero Albatros",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "ABM",
+    "callsign": "ALBATROS ESPANA",
+    "country": "Spain",
+    "active": "N"
+   },
+   {
+    "id": "21",
+    "name": "Aigle Azur",
+    "alias": "\\N",
+    "iata": "ZI",
+    "icao": "AAF",
+    "callsign": "AIGLE AZUR",
+    "country": "France",
+    "active": "Y"
+   },
+   {
+    "id": "22",
+    "name": "Aloha Airlines",
+    "alias": "\\N",
+    "iata": "AQ",
+    "icao": "AAH",
+    "callsign": "ALOHA",
+    "country": "United States",
+    "active": "Y"
+   },
+   {
+    "id": "23",
+    "name": "Alaska Island Air",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAK",
+    "callsign": "ALASKA ISLAND",
+    "country": "United States",
+    "active": "N"
+   },
+   {
+    "id": "24",
+    "name": "American Airlines",
+    "alias": "\\N",
+    "iata": "AA",
+    "icao": "AAL",
+    "callsign": "AMERICAN",
+    "country": "United States",
+    "active": "Y"
+   },
+   {
+    "id": "25",
+    "name": "Aviation Management Corporation",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAM",
+    "callsign": "AM CORP",
+    "country": "United States",
+    "active": "N"
+   },
+   {
+    "id": "26",
+    "name": "Atlantis Airlines (USA)",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAO",
+    "callsign": "ATLANTIS AIR",
+    "country": "United States",
+    "active": "N"
+   },
+   {
+    "id": "27",
+    "name": "Aerovista Airlines",
+    "alias": "\\N",
+    "iata": "",
+    "icao": "AAP",
+    "callsign": "AEROVISTA GROUP",
+    "country": "United Arab Emirates",
+    "active": "N"
+   },
+   {
+    "id": "28",
+    "name": "Asiana Airlines",
+    "alias": "\\N",
+    "iata": "OZ",
+    "icao": "AAR",
+    "callsign": "ASIANA",
+    "country": "Republic of Korea",
+    "active": "Y"
+   },
+   {
+    "id": "29",
+    "name": "Askari Aviation",
+    "alias": "\\N",
+    "iata": "4K",
+    "icao": "AAS",
+    "callsign": "AL-AAS",
+    "country": "Pakistan",
+    "active": "Y"
+   }
+  ]
+ },
+ "airports": {
+  "columns": [
+   "id",
+   "name",
+   "city",
+   "country",
+   "iata",
+   "icao",
+   "altitude_ft",
+   "type"
+  ],
+  "rows": [
+   {
+    "id": "1",
+    "name": "Goroka Airport",
+    "city": "Goroka",
+    "country": "Papua New Guinea",
+    "iata": "GKA",
+    "icao": "AYGA",
+    "altitude_ft": "5282",
+    "type": "airport"
+   },
+   {
+    "id": "259",
+    "name": "Yamoussoukro Airport",
+    "city": "Yamoussoukro",
+    "country": "Cote d'Ivoire",
+    "iata": "ASK",
+    "icao": "DIYO",
+    "altitude_ft": "699",
+    "type": "airport"
+   },
+   {
+    "id": "517",
+    "name": "Leeds Bradford Airport",
+    "city": "Leeds",
+    "country": "United Kingdom",
+    "iata": "LBA",
+    "icao": "EGNM",
+    "altitude_ft": "681",
+    "type": "airport"
+   },
+   {
+    "id": "785",
+    "name": "Holzdorf Air Base",
+    "city": "Holzdorf",
+    "country": "Germany",
+    "iata": "\\N",
+    "icao": "ETSH",
+    "altitude_ft": "265",
+    "type": "airport"
+   },
+   {
+    "id": "1047",
+    "name": "Mopti Airport",
+    "city": "Mopti",
+    "country": "Mali",
+    "iata": "MZI",
+    "icao": "GAMB",
+    "altitude_ft": "906",
+    "type": "airport"
+   },
+   {
+    "id": "1316",
+    "name": "Villefranche-Tarare Airport",
+    "city": "Vilefrance",
+    "country": "France",
+    "iata": "\\N",
+    "icao": "LFHV",
+    "altitude_ft": "1076",
+    "type": "airport"
+   },
+   {
+    "id": "1578",
+    "name": "Kunovice Airport",
+    "city": "Kunovice",
+    "country": "Czech Republic",
+    "iata": "UHE",
+    "icao": "LKKU",
+    "altitude_ft": "581",
+    "type": "airport"
+   },
+   {
+    "id": "1850",
+    "name": "Licenciado Adolfo Lopez Mateos International Airport",
+    "city": "Toluca",
+    "country": "Mexico",
+    "iata": "TLC",
+    "icao": "MMTO",
+    "altitude_ft": "8466",
+    "type": "airport"
+   },
+   {
+    "id": "2122",
+    "name": "Badr Air Base",
+    "city": "Sepah",
+    "country": "Iran",
+    "iata": "\\N",
+    "icao": "OIFP",
+    "altitude_ft": "5242",
+    "type": "airport"
+   },
+   {
+    "id": "2421",
+    "name": "Bagabag Airport",
+    "city": "Bagabag",
+    "country": "Philippines",
+    "iata": "\\N",
+    "icao": "RPUZ",
+    "altitude_ft": "820",
+    "type": "airport"
+   },
+   {
+    "id": "2694",
+    "name": "Taura Airport",
+    "city": "Taura",
+    "country": "Ecuador",
+    "iata": "\\N",
+    "icao": "SETA",
+    "altitude_ft": "56",
+    "type": "airport"
+   },
+   {
+    "id": "2973",
+    "name": "Bolshoye Savino Airport",
+    "city": "Perm",
+    "country": "Russia",
+    "iata": "PEE",
+    "icao": "USPP",
+    "altitude_ft": "404",
+    "type": "airport"
+   },
+   {
+    "id": "3259",
+    "name": "Babo Airport",
+    "city": "Babo",
+    "country": "Indonesia",
+    "iata": "BXB",
+    "icao": "WASO",
+    "altitude_ft": "10",
+    "type": "airport"
+   },
+   {
+    "id": "3527",
+    "name": "Pueblo Memorial Airport",
+    "city": "Pueblo",
+    "country": "United States",
+    "iata": "PUB",
+    "icao": "KPUB",
+    "altitude_ft": "4726",
+    "type": "airport"
+   },
+   {
+    "id": "3784",
+    "name": "Santa Fe Municipal Airport",
+    "city": "Santa Fe",
+    "country": "United States",
+    "iata": "SAF",
+    "icao": "KSAF",
+    "altitude_ft": "6348",
+    "type": "airport"
+   },
+   {
+    "id": "4059",
+    "name": "Jomo Kenyatta International Airport",
+    "city": "Nairobi",
+    "country": "Kenya",
+    "iata": "NBO",
+    "icao": "HKJK",
+    "altitude_ft": "5330",
+    "type": "airport"
+   },
+   {
+    "id": "4368",
+    "name": "Ukhta Airport",
+    "city": "Ukhta",
+    "country": "Russia",
+    "iata": "UCT",
+    "icao": "UUYH",
+    "altitude_ft": "482",
+    "type": "airport"
+   },
+   {
+    "id": "5650",
+    "name": "Basango Mboliasa Airport",
+    "city": "Kiri",
+    "country": "Congo (Kinshasa)",
+    "iata": "KRZ",
+    "icao": "FZBT",
+    "altitude_ft": "1013",
+    "type": "airport"
+   },
+   {
+    "id": "5942",
+    "name": "Dera Ghazi Khan Airport",
+    "city": "Dera Ghazi Khan",
+    "country": "Pakistan",
+    "iata": "DEA",
+    "icao": "OPDG",
+    "altitude_ft": "492",
+    "type": "airport"
+   },
+   {
+    "id": "6232",
+    "name": "Long Bawan Airport",
+    "city": "Long Bawan-Borneo Island",
+    "country": "Indonesia",
+    "iata": "LBW",
+    "icao": "WRLB",
+    "altitude_ft": "3165",
+    "type": "airport"
+   },
+   {
+    "id": "6735",
+    "name": "Coronel Altino Machado de Oliveira Airport",
+    "city": "Governador Valadares",
+    "country": "Brazil",
+    "iata": "GVR",
+    "icao": "SBGV",
+    "altitude_ft": "561",
+    "type": "airport"
+   },
+   {
+    "id": "7096",
+    "name": "Kwigillingok Airport",
+    "city": "Kwigillingok",
+    "country": "United States",
+    "iata": "KWK",
+    "icao": "PAGG",
+    "altitude_ft": "18",
+    "type": "airport"
+   },
+   {
+    "id": "7501",
+    "name": "Chakcharan Airport",
+    "city": "Chaghcharan",
+    "country": "Afghanistan",
+    "iata": "CCN",
+    "icao": "OACC",
+    "altitude_ft": "7383",
+    "type": "airport"
+   },
+   {
+    "id": "7981",
+    "name": "Mobile Airport",
+    "city": "Mobile",
+    "country": "United States",
+    "iata": "\\N",
+    "icao": "1AZ0",
+    "altitude_ft": "1261",
+    "type": "airport"
+   },
+   {
+    "id": "8417",
+    "name": "Jixi Xingkaihu Airport",
+    "city": "Jixi",
+    "country": "China",
+    "iata": "JXA",
+    "icao": "ZYJX",
+    "altitude_ft": "760",
+    "type": "airport"
+   },
+   {
+    "id": "8932",
+    "name": "Rothera Research Station",
+    "city": "Rothera Research Station",
+    "country": "United Kingdom",
+    "iata": "\\N",
+    "icao": "EGAR",
+    "altitude_ft": "9",
+    "type": "airport"
+   },
+   {
+    "id": "9821",
+    "name": "Suntar Airport",
+    "city": "Suntar",
+    "country": "Russia",
+    "iata": "SUY",
+    "icao": "UENS",
+    "altitude_ft": "452",
+    "type": "airport"
+   },
+   {
+    "id": "11243",
+    "name": "Montauk Airport",
+    "city": "Montauk",
+    "country": "United States",
+    "iata": "MTP",
+    "icao": "KMTP",
+    "altitude_ft": "6",
+    "type": "airport"
+   },
+   {
+    "id": "11931",
+    "name": "Base de Aviação de Taubaté Airport",
+    "city": "Taubaté",
+    "country": "Brazil",
+    "iata": "QHP",
+    "icao": "SBTA",
+    "altitude_ft": "1908",
+    "type": "airport"
+   },
+   {
+    "id": "13266",
+    "name": "Boun Neau Airport",
+    "city": "Phongsaly",
+    "country": "Laos",
+    "iata": "PCQ",
+    "icao": "VLFL",
+    "altitude_ft": "3050",
+    "type": "airport"
+   },
+   {
+    "id": "14092",
+    "name": "Xingcheng Air Base",
+    "city": "",
+    "country": "China",
+    "iata": "XEN",
+    "icao": "ZYXC",
+    "altitude_ft": "30",
+    "type": "airport"
+   }
+  ]
+ }
+}

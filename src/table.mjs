@@ -321,6 +321,32 @@ export const OPERATIONS = {
       return `Removed ${before - t.rows.length} row(s). ${t.rows.length} remain.`;
     },
   },
+  multiply_column: {
+    description:
+      'Multiply every value in a numeric column by a factor and round to a number of decimal places (decimals, default 6). ' +
+      'Values may be numbers or numeric text. Missing values stay missing. If any value is not numeric, nothing is changed. ' +
+      'This changes the values only; use rename_column if the unit changes the column name.',
+    input_schema: {
+      type: 'object',
+      properties: { column: { type: 'string' }, factor: { type: 'number' }, decimals: { type: 'number' } },
+      required: ['column', 'factor'],
+    },
+    run(t, { column, factor, decimals = 6 }) {
+      needColumn(t, column);
+      if (typeof factor !== 'number' || !Number.isFinite(factor)) throw new Error('factor must be a number');
+      const out = [];
+      const bad = [];
+      for (const r of t.rows) {
+        const v = r[column];
+        if (isMissing(v)) { out.push(v); continue; }
+        const n = typeof v === 'number' ? v : Number(String(v).trim());
+        if (String(v).trim() === '' || Number.isNaN(n)) bad.push(v); else out.push(Number((n * factor).toFixed(decimals)));
+      }
+      if (bad.length) throw new Error(`These values are not numeric: ${JSON.stringify(bad)}. Nothing was changed.`);
+      t.rows.forEach((r, i) => { r[column] = out[i]; });
+      return `Multiplied "${column}" by ${factor}.`;
+    },
+  },
   rename_column: {
     description: 'Rename a column.',
     input_schema: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] },
@@ -372,10 +398,30 @@ export const FINISH = {
   },
 };
 
-export function toolDefinitions() {
+// Neutral descriptions say only what each tool does. They leave out the warnings and hints that the normal descriptions
+// contain (for example "this does NOT convert units" or "use parse_quantity when units differ"). Running the evals with these
+// shows how much of a pass comes from the model spotting a trap versus from the tool description pointing at it.
+const NEUTRAL = {
+  trim_whitespace: 'Trim whitespace in a column.',
+  change_case: 'Change the case of text in a column.',
+  parse_dates: 'Convert date text in a column to YYYY-MM-DD.',
+  parse_number: 'Convert text in a column to numbers.',
+  parse_quantity: 'Convert text with units in a column to numbers in one unit.',
+  parse_percent: 'Convert percent text in a column to fractions.',
+  replace_values: 'Replace listed values in a column with another value.',
+  map_values: 'Map values in a column to new values.',
+  sort_rows: 'Sort the rows.',
+  drop_duplicates: 'Remove duplicate rows by key columns.',
+  fill_nulls: 'Fill missing values in a column.',
+  drop_rows_where_missing: 'Remove rows where a column is missing.',
+  multiply_column: 'Multiply a numeric column by a factor.',
+  rename_column: 'Rename a column.',
+};
+
+export function toolDefinitions({ neutral = false } = {}) {
   const defs = [];
   for (const [name, o] of Object.entries(READ_ONLY)) defs.push({ name, description: o.description, input_schema: o.input_schema });
-  for (const [name, o] of Object.entries(OPERATIONS)) defs.push({ name, description: o.description, input_schema: o.input_schema });
+  for (const [name, o] of Object.entries(OPERATIONS)) defs.push({ name, description: neutral && NEUTRAL[name] ? NEUTRAL[name] : o.description, input_schema: o.input_schema });
   defs.push({ name: 'finish', description: FINISH.description, input_schema: FINISH.input_schema });
   return defs;
 }

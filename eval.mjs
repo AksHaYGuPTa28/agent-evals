@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CASES as BASIC_CASES } from './cases/cases.mjs';
 import { HARD_CASES } from './cases/hard.mjs';
+import { REAL_CASES } from './cases/real.mjs';
 import { runAgent } from './src/agent.mjs';
 import { anthropicModel, geminiModel, mockModel } from './src/models.mjs';
 import { createTable } from './src/table.mjs';
@@ -30,7 +31,7 @@ function arg(name, fallback) {
 export function scoreRun(c, result) {
   const reasons = [];
   const finalRows = result.table.rows;
-  const columnsOk = JSON.stringify(result.table.columns) === JSON.stringify(c.columns);
+  const columnsOk = JSON.stringify(result.table.columns) === JSON.stringify(c.expectedColumns ?? c.columns);
   const rowsOk = JSON.stringify(finalRows) === JSON.stringify(c.expected);
   if (!columnsOk) reasons.push(`columns changed: ${result.table.columns.join(',')}`);
   if (!rowsOk) reasons.push('table does not match the expected result');
@@ -72,17 +73,20 @@ async function pool(items, limit, fn) {
 }
 
 async function main() {
-  const modelName = arg('model', 'claude-sonnet-5-5');
+  const baseModel = arg('model', 'claude-sonnet-5-5');
+  const neutralTools = !!arg('neutral-tools', false);
+  // Neutral-description runs are reported as a separate entry, e.g. "gemini-3.5-flash-lite (neutral tools)".
+  const modelName = neutralTools ? `${baseModel} (neutral tools)` : baseModel;
   const runs = Number(arg('runs', 1));
   const only = arg('case', null);
-  const isMock = String(modelName).startsWith('mock');
+  const isMock = String(baseModel).startsWith('mock');
   const concurrency = Number(arg('concurrency', isMock ? 8 : 4));
-  const model = isMock ? mockModel(modelName) : String(modelName).startsWith('gemini') ? geminiModel(modelName) : anthropicModel(modelName);
+  const model = isMock ? mockModel(baseModel) : String(baseModel).startsWith('gemini') ? geminiModel(baseModel) : anthropicModel(baseModel);
   const suite = arg('suite', 'all');
-  const pool0 = suite === 'basic' ? BASIC_CASES : suite === 'hard' ? HARD_CASES : [...BASIC_CASES, ...HARD_CASES];
+  const pool0 = { basic: BASIC_CASES, hard: HARD_CASES, real: REAL_CASES }[suite] ?? [...BASIC_CASES, ...HARD_CASES, ...REAL_CASES];
   const cases = pool0.filter((c) => !only || c.id === only);
   if (cases.length === 0) throw new Error(`No case named ${only}`);
-  const price = loadPricing(modelName);
+  const price = loadPricing(baseModel);
 
   const tasks = cases.flatMap((c) => Array.from({ length: runs }, (_, k) => ({ c, k })));
   const started = Date.now();
@@ -91,7 +95,7 @@ async function main() {
   const detail = await pool(tasks, concurrency, async ({ c, k }) => {
     let scored, result = null;
     try {
-      result = await runAgent({ model, task: c.task, table: createTable(c.columns, c.rows), maxSteps: c.maxSteps + 4, meta: { solution: c.solution } });
+      result = await runAgent({ model, task: c.task, table: createTable(c.columns, c.rows), maxSteps: c.maxSteps + 4, meta: { solution: c.solution }, neutralTools });
       scored = scoreRun(c, result);
     } catch (e) {
       // A bad key, bad model name or rejected request is not a model failure. Stop now instead of reporting a fake 0% score.
@@ -171,8 +175,8 @@ async function main() {
   const outDir = path.join(here, 'results');
   fs.mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const report = { model: modelName, runs, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(cases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
-  const file = path.join(outDir, `run-${modelName}-${stamp}.json`);
+  const report = { model: modelName, runs, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(cases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, expectedColumns: c.expectedColumns ?? c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
+  const file = path.join(outDir, `run-${modelName.replace(/[^A-Za-z0-9._-]+/g, '_')}-${stamp}.json`);
   fs.writeFileSync(file, JSON.stringify(report, null, 2));
   console.log(`\nFull traces saved to ${path.relative(here, file)}`);
 

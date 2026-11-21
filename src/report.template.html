@@ -162,7 +162,7 @@ function open(id) {
     drill.append(el('div', { class: 'kv' }, el('b', {}, 'Why this case'), info.why), el('div', { class: 'kv' }, el('b', {}, 'Task'), info.task),
       el('div', { class: 'kv' }, el('b', {}, 'Expected status'), info.expectedStatus, '  ', el('b', {}, 'Step budget'), info.budget));
     drill.append(el('div', { class: 'kv', style: 'margin-top:10px' }, el('b', {}, 'Input table')), table(info.columns, info.input),
-      el('div', { class: 'kv', style: 'margin-top:10px' }, el('b', {}, 'Expected result')), table(info.columns, info.expected));
+      el('div', { class: 'kv', style: 'margin-top:10px' }, el('b', {}, 'Expected result')), table(info.expectedColumns || info.columns, info.expected));
   }
   const models = runs.filter((r) => r.perCase[id]);
   const tabs = el('div', { class: 'tabs' });

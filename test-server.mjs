@@ -34,6 +34,10 @@ await test('page and model list are served', async () => {
 });
 
 let runId;
+await test("health check responds", async () => {
+  assert.deepEqual(await (await fetch(base + "/healthz")).json(), { ok: true });
+});
+
 await test('a run streams steps and returns a before/after result', async () => {
   const r = await run({ csv: CSV, task: 'trim everything', model: 'scripted' });
   assert.equal(r.status, 200);
@@ -98,6 +102,21 @@ await test('formulas in downloaded files are neutralised', async () => {
   // Use a fresh server-side counter by waiting is not possible, so check the writer directly.
   const { toCsv } = await import('./src/csv.mjs');
   assert.equal(toCsv(['a'], [{ a: '=1+1' }, { a: '-5' }, { a: '@x' }]), "a\n'=1+1\n-5\n'@x\n");
+});
+
+await test('behind a proxy, the limit applies per visitor (X-Forwarded-For), and only when TRUST_PROXY=1', async () => {
+  const withIp = async (ip) => (await fetch(base + '/api/run', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify({ csv: CSV, task: 'trim', model: 'scripted' }) })).status;
+  // Header ignored by default: the local address bucket is already exhausted by the previous test, so everything is refused.
+  assert.equal(await withIp('9.9.9.9'), 429);
+  process.env.TRUST_PROXY = '1';
+  try {
+    assert.equal(await withIp('1.1.1.1'), 200); // a fresh visitor is allowed even though 127.0.0.1 is exhausted
+    for (let i = 0; i < 3; i++) assert.equal(await withIp('1.1.1.1'), 200);
+    assert.equal(await withIp('1.1.1.1'), 429); // same visitor hits the limit
+    assert.equal(await withIp('2.2.2.2'), 200); // a different visitor is unaffected
+    // A client cannot dodge the limit by prepending fake addresses: the last entry (added by the proxy) is used.
+    assert.equal(await withIp('5.5.5.5, 1.1.1.1'), 429);
+  } finally { process.env.TRUST_PROXY = ''; }
 });
 
 server.close();

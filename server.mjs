@@ -50,6 +50,10 @@ function makeModel(name) {
   return anthropicModel(name);
 }
 
+// Behind a load balancer the real visitor address is in X-Forwarded-For. Only trust it when told to (TRUST_PROXY=1),
+// otherwise anyone could spoof the header to dodge the run limit.
+const clientIp = (req) => (process.env.TRUST_PROXY === '1' ? String(req.headers['x-forwarded-for'] ?? '').split(',').pop().trim() : '') || req.socket.remoteAddress;
+
 const hits = new Map(); // ip -> [timestamps]
 function limited(ip) {
   const now = Date.now();
@@ -59,7 +63,12 @@ function limited(ip) {
 }
 
 const pending = new Map(); // runId -> proposed result awaiting a human decision
-function audit(entry) { fs.appendFileSync(AUDIT_FILE, JSON.stringify({ time: new Date().toISOString(), ...entry }) + '\n'); }
+function audit(entry) {
+  const line = JSON.stringify({ time: new Date().toISOString(), ...entry });
+  fs.appendFileSync(AUDIT_FILE, line + '\n');
+  // In a container the disk is temporary; stdout is collected by the platform's logging, so the log survives.
+  if (process.env.AUDIT_STDOUT === '1') console.log(line);
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -85,6 +94,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       return send(res, 200, fs.readFileSync(path.join(here, 'public', 'index.html'), 'utf8'), 'text/html; charset=utf-8');
     }
+    if (req.method === 'GET' && url.pathname === '/healthz') return send(res, 200, { ok: true });
     if (req.method === 'GET' && url.pathname === '/api/models') return send(res, 200, { models: availableModels(), scripted: !!process.env.DEMO_SCRIPTED });
 
     if (req.method === 'POST' && url.pathname === '/api/run') {
@@ -96,7 +106,7 @@ const server = http.createServer(async (req, res) => {
       if (!task || task.length > MAX_TASK) return send(res, 400, { error: `Describe the cleaning in 1 to ${MAX_TASK} characters.` });
       let table;
       try { table = parseCsv(String(body.csv ?? '')); } catch (e) { return send(res, 400, { error: e.message }); }
-      if (limited(req.socket.remoteAddress)) return send(res, 429, { error: 'Run limit reached for this hour. Try again later.' });
+      if (limited(clientIp(req))) return send(res, 429, { error: 'Run limit reached for this hour. Try again later.' });
 
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
       const emit = (o) => res.write(JSON.stringify(o) + '\n');
@@ -147,7 +157,8 @@ const server = http.createServer(async (req, res) => {
 setInterval(() => { for (const [id, p] of pending) if (Date.now() - p.createdAt > 3600e3) pending.delete(id); }, 600e3).unref();
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  server.listen(PORT, '127.0.0.1', () => {
+  // Local runs bind to localhost only. A container sets HOST=0.0.0.0 so the platform can reach it.
+  server.listen(PORT, process.env.HOST || '127.0.0.1', () => {
     const m = availableModels();
     console.log(`Demo on http://localhost:${PORT}   models: ${m.length ? m.join(', ') : 'NONE (add a key to .env, or set DEMO_SCRIPTED=1)'}`);
   });

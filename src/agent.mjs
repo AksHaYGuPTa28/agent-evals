@@ -22,9 +22,9 @@ Rules:
  * onEvent (optional) is called with { type, ... } as things happen, so a UI can stream progress.
  * meta is passed to the model untouched (the mock models use it to find their reference solution).
  */
-export async function runAgent({ model, task, table, maxSteps = 12, meta, onEvent = () => {}, signal }) {
+export async function runAgent({ model, task, table, maxSteps = 12, meta, onEvent = () => {}, signal, neutralTools = false }) {
   const t = cloneTable(table);
-  const tools = toolDefinitions();
+  const tools = toolDefinitions({ neutral: neutralTools });
   const messages = [{ role: 'user', content: task }];
   const trace = [];
   const calls = [];
