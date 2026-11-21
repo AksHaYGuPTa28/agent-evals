@@ -10,6 +10,8 @@
     "eval": "node eval.mjs --model gemini-3.5-flash-lite --runs 3",
     "report": "node report.mjs",
     "demo": "node server.mjs",
-    "test:server": "node test-server.mjs"
+    "test:server": "node test-server.mjs",
+    "replay": "node replay.mjs",
+    "site": "node replay.mjs --out docs/index.html --report-href report.html && node report.mjs --out docs/report.html --replay-href index.html"
   }
 }

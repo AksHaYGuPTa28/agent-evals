@@ -25,6 +25,14 @@ jobs:
       - name: Harness check (perfect mock model must pass everything)
         run: node eval.mjs --model mock-good --min-pass 1
 
+      # 2b. The report and replay generators, using the scripted run just produced (they must build and embed their data safely).
+      - name: Report and replay build
+        run: |
+          node report.mjs --include-mock --out "$RUNNER_TEMP/report.html"
+          node replay.mjs --include-mock --out "$RUNNER_TEMP/replay.html"
+          test "$(grep -c '</script>' "$RUNNER_TEMP/report.html")" = "1"
+          test "$(grep -c '</script>' "$RUNNER_TEMP/replay.html")" = "1"
+
       # 3. The gate itself: a deliberately broken model must FAIL the gate, otherwise the gate proves nothing.
       - name: Gate check (broken mock model must trip the pass-rate gate)
         run: |

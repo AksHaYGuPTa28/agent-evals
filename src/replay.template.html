@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watch an agent clean data</title>
+<style>
+  :root { --bg:#fbfaf7; --surface:#fff; --ink:#1c1b19; --muted:#6b6860; --line:#e4e1d8; --accent:#2f5d50; --accent-ink:#fff; --pass:#2f7d4f; --pass-bg:#dff1e5; --fail:#b3412c; --fail-bg:#f8e0da; --warn-bg:#f6edcf; --code:#f1efe8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#151512; --surface:#1d1d19; --ink:#ecebe5; --muted:#a09d92; --line:#302f29; --accent:#7fc4ae; --accent-ink:#13201b; --pass:#7fd19b; --pass-bg:#1e3a2a; --fail:#f0937f; --fail-bg:#4a2a22; --warn-bg:#3d3719; --code:#26251f; } }
+  :root[data-theme="dark"] { --bg:#151512; --surface:#1d1d19; --ink:#ecebe5; --muted:#a09d92; --line:#302f29; --accent:#7fc4ae; --accent-ink:#13201b; --pass:#7fd19b; --pass-bg:#1e3a2a; --fail:#f0937f; --fail-bg:#4a2a22; --warn-bg:#3d3719; --code:#26251f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; letter-spacing:-.01em; }
+  h2 { font-size:17px; margin:0 0 10px; }
+  .lead { color:var(--muted); margin:0 0 12px; max-width:68ch; }
+  .notice { background:var(--warn-bg); border-radius:8px; padding:8px 12px; font-size:13px; margin-bottom:16px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  label { font-size:13px; font-weight:600; color:var(--muted); }
+  select { font:inherit; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); max-width:100%; }
+  button { font:inherit; font-size:14px; padding:7px 14px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  button:disabled { opacity:.5; cursor:default; }
+  button:focus-visible, select:focus-visible, a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .kv { margin:4px 0; } .kv b { color:var(--muted); font-weight:600; margin-right:6px; }
+  .step { display:grid; grid-template-columns:24px 160px 1fr; gap:8px; padding:6px 8px; border-radius:6px; font-size:13px; align-items:start; animation:in .25s ease-out; }
+  .step.err { background:var(--fail-bg); } .step .n { color:var(--muted); } .step .tool { font-weight:700; }
+  @keyframes in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce) { .step { animation:none; } }
+  pre { font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace; background:var(--code); border-radius:6px; padding:6px 9px; margin:0; white-space:pre-wrap; word-break:break-word; }
+  .scroll { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { text-align:left; padding:6px 9px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  td.chg { background:var(--pass-bg); } td.chg s { color:var(--fail); margin-right:6px; opacity:.85; }
+  .badge { font-weight:700; padding:1px 9px; border-radius:99px; font-size:12px; }
+  .badge.p { background:var(--pass-bg); color:var(--pass); } .badge.f { background:var(--fail-bg); color:var(--fail); }
+  .meta { color:var(--muted); font-size:13px; } .reason { color:var(--fail); font-size:13px; margin:3px 0; }
+  .hidden { display:none; }
+  .nav { position:fixed; top:12px; right:12px; display:flex; gap:8px; align-items:center; }
+  .nav a { color:var(--accent); font-size:14px; }
+  @media (max-width:620px) { .step { grid-template-columns:22px 1fr; } .step .tool, .step .body { grid-column:2; } }
+</style>
+</head>
+<body>
+<div class="nav"><a id="reportlink" class="hidden" href="#">Eval report</a><button id="theme" aria-label="Toggle light and dark theme">Theme</button></div>
+<main>
+  <h1>Watch an agent clean data</h1>
+  <p class="lead">These are recorded runs of a small tool-using agent, taken from its real evaluation. Pick one and press Play: the agent's steps appear one by one, then you see what it changed and whether it was right.</p>
+  <div class="notice">Replay of real recorded runs, not a live AI. Nothing here calls a model. Data is synthetic or a small extract of public OpenFlights data.</div>
+
+  <div class="card">
+    <div class="row">
+      <label for="pick">Recorded run</label>
+      <select id="pick" aria-label="Recorded run"></select>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label for="filter">Show</label>
+      <select id="filter"><option value="all">all runs</option><option value="fail">only runs the agent got wrong</option><option value="pass">only runs it got right</option></select>
+      <label for="speed">Speed</label>
+      <select id="speed"><option value="1200">slow</option><option value="600" selected>normal</option><option value="150">fast</option></select>
+    </div>
+  </div>
+
+  <div class="card hidden" id="case">
+    <div class="kv"><b>Task</b><span id="task"></span></div>
+    <div class="kv"><b>Why this case exists</b><span id="why"></span></div>
+    <div class="kv"><b>Model</b><span id="model"></span></div>
+    <h2 style="margin-top:14px">Input table</h2>
+    <div class="scroll" id="input"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="play">Play</button><button id="skip">Skip to end</button>
+      <span class="meta" id="progress"></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="stepsbox"><h2>What the agent did</h2><div id="steps"></div></div>
+
+  <div class="card hidden" id="outcome">
+    <h2>Outcome</h2>
+    <div id="verdict" style="margin-bottom:8px"></div>
+    <div class="scroll"><table id="diff"></table></div>
+    <p class="meta" id="diffnote"></p>
+    <div id="expectedbox" class="hidden"><h2 style="margin-top:14px">What it should have produced</h2><div class="scroll" id="expected"></div></div>
+  </div>
+</main>
+<script>
+const D = /*DATA*/null;
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); for (const kid of kids.flat()) if (kid != null) e.append(kid.nodeType ? kid : document.createTextNode(String(kid))); return e; };
+if (D.reportHref) { const a = $('reportlink'); a.href = D.reportHref; a.classList.remove('hidden'); }
+
+function tableOf(cols, rows) {
+  return el('table', {}, el('thead', {}, el('tr', {}, cols.map((c) => el('th', {}, c)))),
+    el('tbody', {}, rows.map((r) => el('tr', {}, cols.map((c) => el('td', {}, r[c] === null || r[c] === undefined ? 'null' : String(r[c])))))));
+}
+
+let current = null, timer = null, shown = 0;
+const runs = D.runs;
+
+function fillPicker() {
+  const f = $('filter').value;
+  const list = runs.map((r, i) => ({ r, i })).filter(({ r }) => f === 'all' || (f === 'pass') === r.pass);
+  $('pick').replaceChildren(...list.map(({ r, i }) => el('option', { value: i }, `${r.pass ? 'right' : 'WRONG'}  |  ${r.case}  |  ${r.model}`)));
+  if (list.length) select(list[0].i); else $('case').classList.add('hidden');
+}
+function stop() { if (timer) clearInterval(timer); timer = null; }
+
+function select(i) {
+  stop(); current = runs[i]; shown = 0;
+  $('pick').value = String(i);
+  $('case').classList.remove('hidden'); $('stepsbox').classList.add('hidden'); $('outcome').classList.add('hidden');
+  $('task').textContent = current.task; $('why').textContent = current.why; $('model').textContent = current.model + (current.run ? `  (recorded run ${current.run})` : '');
+  $('input').replaceChildren(tableOf(current.columns, current.input));
+  $('steps').replaceChildren(); $('progress').textContent = `${current.trace.length} steps recorded`;
+  $('play').disabled = false; $('play').textContent = 'Play';
+}
+
+function addStep(s) {
+  $('steps').append(el('div', { class: 'step' + (s.error ? ' err' : '') }, el('span', { class: 'n' }, s.step), el('span', { class: 'tool' }, s.tool),
+    el('div', { class: 'body' }, el('pre', {}, JSON.stringify(s.input)), el('pre', { style: 'margin-top:4px' }, s.output))));
+}
+
+function showOutcome() {
+  const r = current; $('outcome').classList.remove('hidden');
+  const v = $('verdict'); v.replaceChildren(el('span', { class: 'badge ' + (r.pass ? 'p' : 'f') }, r.pass ? 'CORRECT' : 'WRONG'), ' ',
+    r.finish ? `The agent finished with status "${r.finish.status}": ${r.finish.summary || ''}` : 'The agent never finished (it ran out of steps).',
+    ...r.reasons.map((x) => el('div', { class: 'reason' }, x)),
+    el('div', { class: 'meta', style: 'margin-top:4px' }, `${r.steps} steps, ${r.toolErrors} tool errors` + (r.tokens ? `, ${r.tokens.toLocaleString('en-US')} tokens` : '')));
+  const cols = r.finalColumns, t = $('diff'); t.replaceChildren(el('thead', {}, el('tr', {}, cols.map((c) => el('th', {}, c)))));
+  const same = r.finalRows.length === r.input.length && JSON.stringify(cols) === JSON.stringify(r.columns);
+  t.append(el('tbody', {}, r.finalRows.map((row, i) => el('tr', {}, cols.map((c) => {
+    const a = row[c] === null || row[c] === undefined ? 'null' : String(row[c]);
+    const b = same ? (r.input[i][c] === null ? 'null' : String(r.input[i][c])) : null;
+    return b !== null && b !== a ? el('td', { class: 'chg' }, el('s', {}, b === '' ? '(empty)' : b), a === '' ? '(empty)' : a) : el('td', {}, a);
+  })))));
+  $('diffnote').textContent = same ? 'Green cells changed (the old value is struck through).' : 'Row or column layout changed, so the final table is shown as the agent left it.';
+  const eb = $('expectedbox');
+  if (!r.pass) { eb.classList.remove('hidden'); $('expected').replaceChildren(tableOf(r.expectedColumns, r.expected)); } else eb.classList.add('hidden');
+}
+
+function play() {
+  stop(); const r = current;
+  $('stepsbox').classList.remove('hidden'); $('outcome').classList.add('hidden'); $('steps').replaceChildren(); shown = 0;
+  $('play').textContent = 'Replay';
+  const tick = () => {
+    if (shown >= r.trace.length) { stop(); $('progress').textContent = 'Done'; showOutcome(); return; }
+    addStep(r.trace[shown++]); $('progress').textContent = `step ${shown} of ${r.trace.length}`;
+  };
+  tick(); timer = setInterval(tick, Number($('speed').value));
+}
+function skip() {
+  stop(); const r = current; $('stepsbox').classList.remove('hidden'); $('steps').replaceChildren(); r.trace.forEach(addStep); $('progress').textContent = 'Done'; $('play').textContent = 'Replay'; showOutcome();
+}
+
+$('pick').addEventListener('change', (e) => select(Number(e.target.value)));
+$('filter').addEventListener('change', fillPicker);
+$('play').addEventListener('click', play);
+$('skip').addEventListener('click', skip);
+$('theme').addEventListener('click', () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; });
+fillPicker();
+</script>
+</body>
+</html>

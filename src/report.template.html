@@ -59,6 +59,7 @@
 </style>
 </head>
 <body>
+<a id="replaylink" class="hidden-link" href="#" style="position:fixed;top:14px;right:84px;font-size:14px;color:var(--accent);display:none">Watch recorded runs</a>
 <button class="toggle" id="toggle" aria-label="Toggle light and dark theme">Theme</button>
 <main>
   <h1>Agent eval report</h1>
@@ -94,6 +95,7 @@ const num = (x) => x.toLocaleString('en-US');
 const secs = (ms) => (ms / 1000).toFixed(1) + 's';
 const short = (m) => m.replace(/^gemini-/, 'g-');
 
+if (D.replayHref) { const a = document.getElementById('replaylink'); a.href = D.replayHref; a.style.display = 'inline'; }
 const runs = D.runs;
 document.getElementById('gen').textContent = D.generated;
 document.getElementById('lead').textContent =

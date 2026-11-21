@@ -84,7 +84,8 @@ async function main() {
   const model = isMock ? mockModel(baseModel) : String(baseModel).startsWith('gemini') ? geminiModel(baseModel) : anthropicModel(baseModel);
   const suite = arg('suite', 'all');
   const pool0 = { basic: BASIC_CASES, hard: HARD_CASES, real: REAL_CASES }[suite] ?? [...BASIC_CASES, ...HARD_CASES, ...REAL_CASES];
-  const cases = pool0.filter((c) => !only || c.id === only);
+  const wanted = typeof only === 'string' ? only.split(',') : null; // --case a,b,c
+  const cases = pool0.filter((c) => !wanted || wanted.includes(c.id));
   if (cases.length === 0) throw new Error(`No case named ${only}`);
   const price = loadPricing(baseModel);
 

@@ -65,10 +65,10 @@ export function geminiModel(name, apiKey = process.env.GEMINI_API_KEY) {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
             body: JSON.stringify(body),
-            signal: AbortSignal.timeout(60000),
+            signal: AbortSignal.timeout(120000),
           });
         } catch (e) {
-          lastError = `request ${e.name === 'TimeoutError' ? 'timed out after 60s' : e.message}`;
+          lastError = `request ${e.name === 'TimeoutError' ? 'timed out after 120s' : e.message}`;
           continue;
         }
         if (res.status === 429 || res.status >= 500) {
