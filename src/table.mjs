@@ -19,6 +19,24 @@ function needColumn(t, c) {
 const pad = (n) => String(n).padStart(2, '0');
 const daysIn = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 
+// Slash dates such as 03/04/2026 are valid both day-first and month-first. Unless the user said which order they use,
+// require proof in the values themselves: a first part above 12 proves day-first, a second part above 12 proves month-first.
+function assertDateOrderProven(values, formats) {
+  const dayFirst = formats.includes('DD/MM/YYYY'), monthFirst = formats.includes('MM/DD/YYYY');
+  if (!dayFirst && !monthFirst) return;
+  if (dayFirst && monthFirst) return; // the caller is explicitly accepting both
+  const slash = values.filter((v) => !isMissing(v)).map((v) => String(v).trim().match(/^([0-9]{1,2})[/]([0-9]{1,2})[/][0-9]{4}$/)).filter(Boolean);
+  if (slash.length === 0) return;
+  const proof = slash.some((m) => (dayFirst ? Number(m[1]) > 12 : Number(m[2]) > 12));
+  if (!proof) {
+    throw new Error(
+      `No value proves the dates are ${dayFirst ? 'day-first' : 'month-first'}: every first and second part is 12 or less, so both orders are valid. ` +
+      `If the user did not say which order the dates use, do not guess: call finish with status "cannot_complete" and ask which order. ` +
+      `If the user did state it, call parse_dates again with user_stated_order: true. Nothing was changed.`
+    );
+  }
+}
+
 function parseDate(value, fmt) {
   const v = String(value).trim();
   let y, m, d, mm;
@@ -99,14 +117,16 @@ export const OPERATIONS = {
         column: { type: 'string' },
         input_format: { type: 'string', enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'D Mon YYYY'] },
         input_formats: { type: 'array', items: { type: 'string', enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD', 'D Mon YYYY'] } },
+        user_stated_order: { type: 'boolean', description: 'Set true ONLY if the task message explicitly says which order slash dates use (day-first or month-first). Otherwise leave it out: the tool then checks the values for proof of the order and refuses if there is none.' },
         on_invalid: { type: 'string', enum: ['error', 'null'], description: 'What to do with a value that is not a valid date: "error" stops and changes nothing; "null" turns it into null.' },
       },
       required: ['column'],
     },
-    run(t, { column, input_format, input_formats, on_invalid = 'error' }) {
+    run(t, { column, input_format, input_formats, on_invalid = 'error', user_stated_order = false }) {
       needColumn(t, column);
       const formats = input_formats?.length ? input_formats : input_format ? [input_format] : null;
       if (!formats) throw new Error('Give input_format or input_formats');
+      if (!user_stated_order) assertDateOrderProven(t.rows.map((r) => r[column]), formats);
       const out = [];
       const bad = [];
       for (const r of t.rows) {

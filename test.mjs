@@ -113,6 +113,40 @@ test('multiply_column refuses non-numeric text and changes nothing', () => {
   assert.deepEqual(t.rows, [{ x: '5' }, { x: 'abc' }]);
 });
 
+test('parse_dates refuses to guess the order when every value is valid both ways, and changes nothing', () => {
+  const t = tableOf('ambiguous_dates_must_refuse');
+  assert.throws(() => OPERATIONS.parse_dates.run(t, { column: 'date', input_format: 'DD/MM/YYYY' }), /No value proves the dates are day-first/);
+  assert.deepEqual(t.rows, all.ambiguous_dates_must_refuse.rows);
+});
+
+test('parse_dates accepts the order when the user stated it (user_stated_order: true)', () => {
+  const t = tableOf('ambiguous_dates_must_refuse');
+  OPERATIONS.parse_dates.run(t, { column: 'date', input_format: 'DD/MM/YYYY', user_stated_order: true });
+  assert.equal(t.rows[0].date, '2026-04-03');
+});
+
+test('parse_dates accepts the order when a value proves it, without any flag', () => {
+  const t = tableOf('ambiguous_dates_infer_from_evidence');
+  OPERATIONS.parse_dates.run(t, { column: 'date', input_format: 'DD/MM/YYYY' });
+  assert.ok(matches('ambiguous_dates_infer_from_evidence', t));
+});
+
+test('parse_dates month-first needs a second part above 12 as proof', () => {
+  const proven = createTable(['d'], [{ d: '04/25/2026' }, { d: '01/02/2026' }]);
+  OPERATIONS.parse_dates.run(proven, { column: 'd', input_format: 'MM/DD/YYYY' });
+  assert.equal(proven.rows[0].d, '2026-04-25');
+  const unproven = createTable(['d'], [{ d: '04/05/2026' }]);
+  assert.throws(() => OPERATIONS.parse_dates.run(unproven, { column: 'd', input_format: 'MM/DD/YYYY' }), /No value proves the dates are month-first/);
+});
+
+test('parse_dates guard does not apply to non-slash formats or to an explicit choice of both orders', () => {
+  const iso = createTable(['d'], [{ d: '2026-04-03' }]);
+  OPERATIONS.parse_dates.run(iso, { column: 'd', input_format: 'YYYY-MM-DD' });
+  const both = createTable(['d'], [{ d: '03/04/2026' }]);
+  OPERATIONS.parse_dates.run(both, { column: 'd', input_formats: ['DD/MM/YYYY', 'MM/DD/YYYY'] });
+  assert.equal(both.rows[0].d, '2026-04-03');
+});
+
 // The agent loop: undo restores the table, and a failed operation is not recorded as a change.
 const { runAgent } = await import("./src/agent.mjs");
 const scripted = (steps) => ({ name: "scripted", async respond({ messages }) {

@@ -10,6 +10,7 @@
 // Without it the report shows tokens only. No prices are guessed.
 
 import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CASES as BASIC_CASES } from './cases/cases.mjs';
@@ -176,7 +177,10 @@ async function main() {
   const outDir = path.join(here, 'results');
   fs.mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const report = { model: modelName, runs, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(cases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, expectedColumns: c.expectedColumns ?? c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
+  // Record which code produced these results, so a run made before a fix is never confused with one made after it.
+  const git = (c) => { try { return execSync(`git ${c}`, { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; } };
+  const code = { commit: git('rev-parse --short HEAD'), uncommittedChanges: !!git('status --porcelain') };
+  const report = { model: modelName, runs, code, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(cases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, expectedColumns: c.expectedColumns ?? c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
   const file = path.join(outDir, `run-${modelName.replace(/[^A-Za-z0-9._-]+/g, '_')}-${stamp}.json`);
   fs.writeFileSync(file, JSON.stringify(report, null, 2));
   console.log(`\nFull traces saved to ${path.relative(here, file)}`);
