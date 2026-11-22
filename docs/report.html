@@ -109,22 +109,27 @@ if (!D.findings.length) F.parentNode.removeChild(F.previousElementSibling), F.re
 
 // Leaderboard
 const board = document.getElementById('board');
-const heads = ['Model', 'Mean pass', 'Every run passes', 'Avg steps', 'Tokens / run', 'Avg time / run', 'Cost / run', 'Runs per case', 'Date'];
-board.append(el('thead', {}, el('tr', {}, heads.map((h, i) => el('th', { class: i > 0 && i < 8 ? 'num' : '' }, h)))));
+const heads = ['Model', 'Cases scored', 'Mean pass', 'Every run passes', 'Avg steps', 'Tokens / run', 'Avg time / run', 'Cost / run', 'Runs per case', 'Date'];
+board.append(el('thead', {}, el('tr', {}, heads.map((h, i) => el('th', { class: i > 0 && i < 9 ? 'num' : '' }, h)))));
 const tb = el('tbody');
-const sorted = [...runs].sort((a, b) => b.meanPass - a.meanPass || b.allPass - a.allPass);
+// A model scored on only a few cases must not outrank one scored on the whole suite, so partial coverage sorts last and is labelled.
+const totalCases = new Set(runs.flatMap((r) => Object.keys(r.perCase))).size;
+const isPartial = (r) => Object.keys(r.perCase).length < 0.8 * totalCases;
+const sorted = [...runs].sort((a, b) => Number(isPartial(a)) - Number(isPartial(b)) || b.meanPass - a.meanPass || b.allPass - a.allPass);
 for (const r of sorted) {
   const n = r.detail.length || 1;
   const tok = r.detail.reduce((s, d) => s + (d.usage ? d.usage.input + d.usage.output : 0), 0) / n;
   const ms = r.detail.reduce((s, d) => s + (d.wallMs || 0), 0) / n;
   const cost = r.totals && r.totals.costUsd != null ? '$' + (r.totals.costUsd / n).toFixed(4) : 'n/a';
   const steps = Object.values(r.perCase).reduce((s, p) => s + p.avgSteps, 0) / Object.keys(r.perCase).length;
-  tb.append(el('tr', {}, el('td', {}, r.model), el('td', { class: 'num' }, pct(r.meanPass)), el('td', { class: 'num' }, pct(r.allPass)),
+  const scored = Object.keys(r.perCase).length;
+  tb.append(el('tr', {}, el('td', {}, r.model + (isPartial(r) ? '  (partial)' : '')), el('td', { class: 'num' }, scored + ' of ' + totalCases),
+    el('td', { class: 'num' }, pct(r.meanPass)), el('td', { class: 'num' }, pct(r.allPass)),
     el('td', { class: 'num' }, steps.toFixed(1)), el('td', { class: 'num' }, tok ? num(Math.round(tok)) : 'n/a'),
     el('td', { class: 'num' }, ms ? secs(ms) : 'n/a'), el('td', { class: 'num' }, cost), el('td', { class: 'num' }, r.runs), el('td', {}, r.when.slice(0, 10))));
 }
 board.append(tb);
-document.getElementById('boardnote').textContent = 'Cost shows n/a unless prices are supplied in pricing.json. Token and time figures need a run made with the current runner.';
+document.getElementById('boardnote').textContent = 'A pass rate is only comparable between models scored on the same cases: "partial" means fewer than 80% of the cases were scored (the free API tier has a daily request cap), so do not read it as a ranking. Cost shows n/a unless prices are supplied in pricing.json.';
 
 // Heatmap
 const caseIds = [];
