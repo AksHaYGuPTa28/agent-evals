@@ -12,6 +12,34 @@ It is a learning and portfolio project, not a product. The point is to show how 
 ## Results
 
 <!--RESULTS-->
+Latest scored result for each case, from the saved runs (a case with any crashed API call is left out, never counted as a failure). Each case runs 3 times. Small models, synthetic and a little real data: read these as signals, not rankings.
+
+| Model | Cases scored | Mean pass rate | Cases passing every run | Tokens per run | Time per run |
+|---|---|---|---|---|---|
+| gemini-3.1-flash-lite | 24 | 94% | 92% | 16,301 | 96.4s |
+| gemini-3.5-flash | 1 | 100% | 100% | 12,715 | 81.1s |
+| gemini-3.5-flash-lite | 23 | 96% | 96% | 11,170 | 82.3s |
+| gemini-3.5-flash-lite (neutral tools) | 8 | 92% | 88% | 10,064 | 95.2s |
+
+**Cases that did not pass every run**
+
+| Model | Case | Passes |
+|---|---|---|
+| gemini-3.1-flash-lite | `ambiguous_dates_must_refuse` | 0/3 |
+| gemini-3.1-flash-lite | `real_airlines_missing_markers` | 2/3 |
+| gemini-3.5-flash-lite | `ambiguous_dates_must_refuse` | 0/3 |
+| gemini-3.5-flash-lite (neutral tools) | `mixed_units_to_kg` | 1/3 |
+
+**Tool descriptions with and without hints** (`--neutral-tools`: descriptions say only what each tool does, with no warnings about traps). Same model, same cases:
+
+Over the 8 case(s) scored both ways, runs passed: 24/24 with the normal descriptions, 22/24 with neutral ones.
+
+| Model | Case | Normal descriptions | Neutral descriptions |
+|---|---|---|---|
+| gemini-3.5-flash-lite | `mixed_units_to_kg` | 3/3 | 1/3 |
+
+Open [`docs/index.html`](docs/index.html) to watch recorded runs step by step, and [`docs/report.html`](docs/report.html) for the heatmap and every trace.
+<!--/RESULTS-->
 
 ## What the evals found
 
