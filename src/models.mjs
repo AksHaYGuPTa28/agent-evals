@@ -72,7 +72,13 @@ export function geminiModel(name, apiKey = process.env.GEMINI_API_KEY) {
           continue;
         }
         if (res.status === 429 || res.status >= 500) {
-          const text = (await res.text()).slice(0, 300).replace(/\s+/g, ' ');
+          const full = await res.text();
+          // A per-day cap will not clear by waiting minutes. Stop at once so the runner can keep what it has.
+          if (res.status === 429 && /PerDay/.test(full)) {
+            const delay = (full.match(/"retryDelay":\s*"(\d+)s"/) || [])[1];
+            throw new Error(`API 429 daily quota exhausted for ${name}` + (delay ? ` (resets in about ${Math.round(Number(delay) / 3600)} hours)` : ''));
+          }
+          const text = full.slice(0, 300).replace(/\s+/g, ' ');
           lastError = `${res.status} ${text.slice(0, 160)}`;
           // Rate limits (429) are per minute on this key: wait for the window to reset. Server errors back off shorter.
           const wait = res.status === 429 ? 20000 + 10000 * attempt : 2000 * 2 ** attempt;

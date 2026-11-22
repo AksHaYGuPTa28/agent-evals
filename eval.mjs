@@ -94,13 +94,16 @@ async function main() {
   const started = Date.now();
   console.log(`Running ${tasks.length} runs (${cases.length} cases x ${runs}) on ${modelName}, ${concurrency} at a time...`);
 
-  const detail = await pool(tasks, concurrency, async ({ c, k }) => {
+  let quotaStop = null; // set when the API reports a per-day cap: the remaining runs are skipped, not retried for hours
+  let detail = await pool(tasks, concurrency, async ({ c, k }) => {
+    if (quotaStop) return { case: c.id, run: k + 1, skipped: true };
     let scored, result = null;
     try {
       result = await runAgent({ model, task: c.task, table: createTable(c.columns, c.rows), maxSteps: c.maxSteps + 4, meta: { solution: c.solution }, neutralTools });
       scored = scoreRun(c, result);
     } catch (e) {
       // A bad key, bad model name or rejected request is not a model failure. Stop now instead of reporting a fake 0% score.
+      if (/^API 429 daily/.test(e.message)) { quotaStop = e.message; return { case: c.id, run: k + 1, skipped: true }; }
       if (/^API (400|401|403|404)/.test(e.message)) {
         throw new Error(`${e.message}\n\nThe API rejected the request, so no cases were scored. Check the API key and the model name.`);
       }
@@ -124,8 +127,15 @@ async function main() {
     };
   });
 
+  // Keep only cases whose every run was scored. A case cut short by a daily cap is left out, never counted as a failure.
+  const unfinished = new Set(detail.filter((d) => d.skipped).map((d) => d.case));
+  detail = detail.filter((d) => !unfinished.has(d.case));
+  const scoredCases = cases.filter((c) => !unfinished.has(c.id));
+  if (quotaStop) console.log(`
+STOPPED EARLY: ${quotaStop}. ${scoredCases.length} of ${cases.length} case(s) were fully scored and are kept; the rest were not run.`);
+  if (scoredCases.length === 0) { console.log('No case was fully scored, so nothing was saved.'); process.exitCode = 3; return; }
   const perCase = {};
-  for (const c of cases) {
+  for (const c of scoredCases) {
     const rs = detail.filter((d) => d.case === c.id);
     const passes = rs.filter((o) => o.pass).length;
     perCase[c.id] = {
@@ -180,7 +190,7 @@ async function main() {
   // Record which code produced these results, so a run made before a fix is never confused with one made after it.
   const git = (c) => { try { return execSync(`git ${c}`, { cwd: here, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return null; } };
   const code = { commit: git('rev-parse --short HEAD'), uncommittedChanges: !!git('status --porcelain') };
-  const report = { model: modelName, runs, code, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(cases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, expectedColumns: c.expectedColumns ?? c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
+  const report = { model: modelName, runs, code, when: new Date().toISOString(), meanPass, allPass, totals, perCase, detail, caseInfo: Object.fromEntries(scoredCases.map((c) => [c.id, { why: c.why, task: c.task, budget: c.maxSteps, columns: c.columns, expectedColumns: c.expectedColumns ?? c.columns, input: c.rows, expected: c.expected, expectedStatus: c.expectedStatus }])) };
   const file = path.join(outDir, `run-${modelName.replace(/[^A-Za-z0-9._-]+/g, '_')}-${stamp}.json`);
   fs.writeFileSync(file, JSON.stringify(report, null, 2));
   console.log(`\nFull traces saved to ${path.relative(here, file)}`);
