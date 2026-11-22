@@ -45,9 +45,28 @@ Open [`docs/index.html`](docs/index.html) to watch recorded runs step by step, a
 
 **1. A fix that did not work, and the real cause.** `messy_category_mapping` (14 spellings of cabin class) failed 0/3: the agent hit its step limit with 30 tool errors. Making the error message list the exact values to copy changed nothing. The traces showed the real cause: the tool took an object with free-form keys, and the model could not write keys containing spaces or dots (`prem_econ`, `Bus_`, then `Bus_z`, `Bus_g`). Changing the tool to take a list of `{from, to}` pairs took it from 0/3 to 3/3. Lesson: read the traces before changing the prompt, and design tool interfaces around what models can write reliably.
 
-**2. A pass does not prove the model saw the trap.** Several traps are easy to pass because the tool description warns about them ("this does NOT convert units"). `--neutral-tools` re-runs the same cases with descriptions that only say what each tool does. The comparison is in the results above.
+**2. A pass does not prove the model saw the trap.** Several traps are easy to pass because the tool description warns about them ("this does NOT convert units"). `--neutral-tools` re-runs the same cases with descriptions that only say what each tool does. On the cases scored both ways, one got clearly worse: `mixed_units_to_kg` went from 3/3 to 1/3. The trace shows why. Without the description, the model guessed what `decimal: ","` meant, turned "12,500 kg" into 12.5, and could not recover: the conversion destroyed the original text and it had no way back, so it looped on `profile` and `show_rows` until the step limit. Fixes (general, not specific to that case): parameter-level descriptions, an `undo` tool, and a rule to undo when a result looks wrong.
 
-**3. Refuse, or proceed and disclose?** When every date could be day-first or month-first, the model picks day-first, converts the column and says so in its summary, instead of stopping to ask. The case expects a refusal, so it fails 0/3, every time. Whether disclose-and-proceed should count as a pass is a product decision. The case stays as it is, and the report keeps the failure visible.
+**3. Refuse, or proceed and disclose?** When every date could be day-first or month-first, the model picks day-first, converts the column and says so in its summary, instead of stopping to ask. The case expects a refusal, so it failed 0/3 on every run, on two different models. Two attempts to fix it:
+- A clearer system prompt rule (use the order the user stated, else look for a date part above 12, else stop and ask). **Did not work**: still 0/3 on both models.
+- Moving the check into the tool: `parse_dates` now refuses slash dates unless the user stated the order or a value proves it, and tells the agent to stop and ask. The safe path is the default instead of a rule the model has to remember. **Offline tests pass; the live result is still pending** (see below).
+
+Whether disclose-and-proceed should count as a pass is a product decision. The case stays as it is.
+
+**4. A garbled tool call and a run that just stopped.** On `real_airlines_missing_markers` (real data where "missing" is written as `\N`, `-`, `N/A` and an empty string), one run on `gemini-3.1-flash-lite` produced a tool call whose JSON arguments had its own reasoning text leaked into them, then returned no tool call and the run ended unfinished. Fixes: an empty or malformed reply now gets a reminder and a retry (at most twice, with the API's finish reason recorded in the trace), and `replace_values` gained `include_blank`, so handling empty strings no longer means writing an empty string inside JSON.
+
+## Validation status (read this before trusting the fixes)
+
+The results above come from full runs made **before** these fixes: the date-order guard, the `undo` tool, parameter descriptions, `include_blank` and the empty-reply retry. They are covered by 27 sanity tests and 12 server tests, and a perfect scripted model still scores 100% on all 24 cases. On a live model, only `dates_day_first` has been re-run on the final code (3/3 on `gemini-3.5-flash`). Every other re-run was blocked by the Gemini free tier's **per-day, per-model request cap**, which the runner now detects and stops on cleanly.
+
+So the claim is: these fixes are implemented and tested offline, and one live case confirms no regression there. The remaining live validation is a command away once a quota is available:
+
+```powershell
+node eval.mjs --model gemini-3.5-flash-lite --runs 3 --case ambiguous_dates_must_refuse,ambiguous_dates_infer_from_evidence,dates_day_first,mixed_date_formats,invalid_dates_become_null,real_airlines_missing_markers
+node eval.mjs --model gemini-3.5-flash-lite --runs 3 --baseline results/baseline.json
+npm run site
+node scripts/readme-results.mjs
+```
 
 ## The 24 cases
 

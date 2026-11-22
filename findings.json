@@ -7,11 +7,16 @@
   {
     "tag": "Eval validity",
     "title": "A pass does not prove the model saw the trap",
-    "body": "Several traps are easy to pass because the tool descriptions warn about them (for example that a plain number parse does not convert units). A model can pass by reading the docs without understanding the problem. Making those descriptions neutral and re-running is the honest way to measure it."
+    "body": "With neutral tool descriptions (no warnings about traps), one case got clearly worse: mixed units went from 3/3 to 1/3. The model guessed what a decimal setting meant, turned 12,500 kg into 12.5, and could not recover because the conversion destroyed the original text. Fixes: parameter-level documentation, an undo tool, and a rule to undo when a result looks wrong."
   },
   {
     "tag": "Judgment call",
     "title": "Refuse, or proceed and disclose?",
-    "body": "When every date could be day-first or month-first, the model picked day-first, converted the column and said so in its summary, instead of stopping to ask. The case expects a refusal, so it fails. Whether disclose-and-proceed should count as a pass is a product decision, and the report keeps it visible."
+    "body": "When every date could be day-first or month-first, the model picked day-first, converted the column and said so, instead of stopping to ask. A clearer prompt rule did not change that (still 0/3 on two models). The check now lives in the date tool itself: it refuses unless the user stated the order or a value proves it. Offline tests pass; the live re-run is pending because the free API tier ran out of its daily cap."
+  },
+  {
+    "tag": "Real failure",
+    "title": "A garbled tool call, then a run that just stopped",
+    "body": "On real data where missing is written as backslash-N, a dash, N/A or an empty string, one run produced a tool call with its own reasoning leaked into the JSON arguments, then returned no tool call at all and ended unfinished. Fixes: an empty or malformed reply now gets a reminder and a retry, and replace_values gained include_blank so empty strings no longer have to be written inside JSON."
   }
 ]
