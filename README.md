@@ -59,7 +59,9 @@ Whether disclose-and-proceed should count as a pass is a product decision. The c
 
 The results above come from full runs made **before** these fixes: the date-order guard, the `undo` tool, parameter descriptions, `include_blank` and the empty-reply retry. They are covered by 27 sanity tests and 12 server tests, and a perfect scripted model still scores 100% on all 24 cases. On a live model, only `dates_day_first` has been re-run on the final code (3/3 on `gemini-3.5-flash`). Every other re-run was blocked by the Gemini free tier's **per-day, per-model request cap**, which the runner now detects and stops on cleanly.
 
-So the claim is: these fixes are implemented and tested offline, and one live case confirms no regression there. The remaining live validation is a command away once a quota is available:
+**Reported by the author, not verifiable from this repository:** on 22 Nov 2026 the author ran the project separately and reported that everything ran successfully and passed (100%). The result files from that run are not in this repository, so the table above does not include it and it cannot be checked from here. Treat it as a report, not a measurement.
+
+So what this repository itself can show is: the fixes are implemented and tested offline, and one live case confirms no regression there. A checkable live validation is a command away once a quota is available:
 
 ```powershell
 node eval.mjs --model gemini-3.5-flash-lite --runs 3 --case ambiguous_dates_must_refuse,ambiguous_dates_infer_from_evidence,dates_day_first,mixed_date_formats,invalid_dates_become_null,real_airlines_missing_markers
